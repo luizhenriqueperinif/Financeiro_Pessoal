@@ -1,0 +1,21 @@
+appId: com.financeiro.pessoal
+productName: Financeiro Pessoal
+npmRebuild: false
+directories:
+  output: release
+files:
+  - dist/**/*
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Financeiro Pessoal

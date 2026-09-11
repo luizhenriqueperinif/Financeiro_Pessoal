@@ -1,0 +1,3 @@
+# Arquitetura Electron, React, TypeScript e SQLite local com Clean Architecture
+
+Decidimos estruturar o sistema em uma arquitetura de camadas com um core de regras de negócio agnóstico em TypeScript, interface em React com Vite e Tailwind CSS, persistência local em SQLite e casca desktop via Electron com ContextBridge seguro. Essa escolha permite gerar um instalador comum Windows (.exe) sem dependências externas no usuário final, garantindo 90%+ de reaproveitamento do core e da interface para a futura versão mobile (Android/iOS via Capacitor) mantendo máxima performance e segurança offline-first.
