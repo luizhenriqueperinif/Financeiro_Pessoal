@@ -167,7 +167,7 @@ Financeiro_Pessoal/
 
 ### 1. Clonar e Instalar Dependências
 ```bash
-git clone <URL_DO_REPOSITORIO>
+git clone https://github.com/luizhenriqueperinif/Financeiro_Pessoal.git
 cd Financeiro_Pessoal
 npm install
 ```
