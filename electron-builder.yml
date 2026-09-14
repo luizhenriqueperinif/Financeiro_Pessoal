@@ -5,7 +5,11 @@ directories:
   output: release
 files:
   - dist/**/*
+  - node_modules/better-sqlite3/**/*
+asarUnpack:
+  - "**/*.node"
 win:
+  icon: build/icon.ico
   target:
     - target: nsis
       arch:

@@ -136,6 +136,9 @@ function createWindow() {
     title: 'Financeiro Pessoal',
     backgroundColor: '#090d16',
     autoHideMenuBar: true,
+    icon: fs.existsSync(path.join(currentDir, '../renderer/icon.png'))
+      ? path.join(currentDir, '../renderer/icon.png')
+      : path.join(process.cwd(), 'build/icon.png'),
     webPreferences: {
       preload: path.join(currentDir, 'preload.cjs'),
       nodeIntegration: false,
