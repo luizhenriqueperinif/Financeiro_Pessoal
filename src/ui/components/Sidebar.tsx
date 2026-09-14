@@ -10,6 +10,7 @@ import {
   BarChart3,
   Settings,
   Wallet,
+  Sparkles,
 } from 'lucide-react';
 
 export type PageId =
@@ -21,6 +22,7 @@ export type PageId =
   | 'installments'
   | 'calendar'
   | 'reports'
+  | 'advisor'
   | 'settings';
 
 interface SidebarProps {
@@ -43,6 +45,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'installments' as PageId, label: 'Parcelamentos', icon: CreditCard },
     { id: 'calendar' as PageId, label: 'Calendário', icon: Calendar },
     { id: 'reports' as PageId, label: 'Relatórios', icon: BarChart3 },
+    { id: 'advisor' as PageId, label: 'Conselheiro IA', icon: Sparkles },
     { id: 'settings' as PageId, label: 'Configurações', icon: Settings },
   ];
 

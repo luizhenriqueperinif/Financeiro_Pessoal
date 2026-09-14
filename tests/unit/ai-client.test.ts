@@ -1,0 +1,104 @@
+import { describe, it, expect, vi } from 'vitest';
+import {
+  getDefaultAIConfig,
+  generateAdvisorAdvice,
+  AIConfig,
+} from '../../src/core/services/ai-client.js';
+
+describe('AIClient (Integração com Provedores Gratuitos de IA)', () => {
+  it('retorna configuração padrão segura apontando para Gemini Free Tier', () => {
+    const config = getDefaultAIConfig();
+    expect(config.provider).toBe('gemini');
+    expect(config.model).toContain('gemini');
+  });
+
+  it('lança erro amigável se a chave de API do Gemini não estiver configurada', async () => {
+    const config: AIConfig = {
+      provider: 'gemini',
+      apiKey: '',
+      model: 'gemini-1.5-flash',
+    };
+
+    await expect(generateAdvisorAdvice(config, 'Olá')).rejects.toThrow(
+      /Chave de API do Google Gemini não configurada/
+    );
+  });
+
+  it('processa resposta da API do Google Gemini com sucesso', async () => {
+    const config: AIConfig = {
+      provider: 'gemini',
+      apiKey: 'test-key-123',
+      model: 'gemini-1.5-flash',
+    };
+
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        candidates: [
+          {
+            content: {
+              parts: [{ text: 'Recomendo economizar 10% da sua renda.' }],
+            },
+          },
+        ],
+      }),
+    });
+
+    const response = await generateAdvisorAdvice(config, 'Pergunta de teste', mockFetch as any);
+    expect(response).toBe('Recomendo economizar 10% da sua renda.');
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('generativelanguage.googleapis.com'),
+      expect.objectContaining({ method: 'POST' })
+    );
+  });
+
+  it('processa resposta de endpoint OpenAI/Ollama compatível', async () => {
+    const config: AIConfig = {
+      provider: 'ollama',
+      model: 'llama3.2',
+      customEndpoint: 'http://localhost:11434/v1',
+    };
+
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            message: { content: 'Resposta do modelo local Ollama.' },
+          },
+        ],
+      }),
+    });
+
+    const response = await generateAdvisorAdvice(config, 'Pergunta teste Ollama', mockFetch as any);
+    expect(response).toBe('Resposta do modelo local Ollama.');
+  });
+
+  it('envia histórico conversacional anterior para manter continuidade de diálogo', async () => {
+    const config: AIConfig = {
+      provider: 'gemini',
+      apiKey: 'key-123',
+      model: 'gemini-1.5-flash',
+    };
+
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        candidates: [{ content: { parts: [{ text: 'Vale a pena sim.' }] } }],
+      }),
+    });
+
+    const history = [
+      { id: '1', role: 'user' as const, content: 'Tenho R$ 5.000 de salário', timestamp: '10:00' },
+      { id: '2', role: 'assistant' as const, content: 'Ótimo, seu orçamento permite planejar.', timestamp: '10:01' },
+    ];
+
+    const response = await generateAdvisorAdvice(config, 'E se eu comprar um celular?', mockFetch as any, history);
+    expect(response).toBe('Vale a pena sim.');
+
+    const sentBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(sentBody.contents.length).toBe(3); // 2 history + 1 current
+    expect(sentBody.contents[0].parts[0].text).toBe('Tenho R$ 5.000 de salário');
+    expect(sentBody.contents[1].parts[0].text).toBe('Ótimo, seu orçamento permite planejar.');
+  });
+});

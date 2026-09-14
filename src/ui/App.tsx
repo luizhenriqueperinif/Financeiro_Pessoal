@@ -13,6 +13,7 @@ import { InstallmentsPage } from './pages/InstallmentsPage.js';
 import { CalendarPage } from './pages/CalendarPage.js';
 import { ReportsPage } from './pages/ReportsPage.js';
 import { SettingsPage } from './pages/SettingsPage.js';
+import { AdvisorPage } from './pages/AdvisorPage.js';
 import { Category } from '../core/domain/category.js';
 import { TransactionType } from '../core/types/common.js';
 import { api } from './services/api.js';
@@ -193,6 +194,13 @@ export const App: React.FC = () => {
           )}
 
           {currentPage === 'reports' && <ReportsPage />}
+
+          {currentPage === 'advisor' && (
+            <AdvisorPage
+              selectedYearMonth={selectedYearMonth}
+              onNavigateToSettings={() => setCurrentPage('settings')}
+            />
+          )}
 
           {currentPage === 'settings' && <SettingsPage />}
         </main>

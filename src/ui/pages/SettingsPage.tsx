@@ -5,15 +5,36 @@ import {
   Upload,
   ShieldCheck,
   Smartphone,
-  HardDrive,
   CheckCircle2,
   AlertCircle,
+  Sparkles,
+  Key,
+  Eye,
+  EyeOff,
+  ExternalLink,
+  Server,
+  Cpu,
 } from 'lucide-react';
 import { api } from '../services/api.js';
+import {
+  AIConfig,
+  AIProvider,
+  testAIConnection,
+} from '../../core/services/ai-client.js';
+import {
+  loadStoredAIConfig,
+  saveStoredAIConfig,
+} from '../services/ai-config-storage.js';
 
 export const SettingsPage: React.FC = () => {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Configurações de IA
+  const [aiConfig, setAiConfig] = useState<AIConfig>(() => loadStoredAIConfig());
+  const [isTestingAI, setIsTestingAI] = useState(false);
+  const [aiTestResult, setAiTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [showApiKey, setShowApiKey] = useState(false);
 
   const handleExportJSON = async () => {
     try {
@@ -51,15 +72,37 @@ export const SettingsPage: React.FC = () => {
     reader.readAsText(file);
   };
 
+  const handleSaveAI = () => {
+    saveStoredAIConfig(aiConfig);
+    setSuccessMsg('Configurações de Inteligência Artificial salvas com sucesso!');
+    setTimeout(() => setSuccessMsg(null), 4000);
+  };
+
+  const handleTestAI = async () => {
+    try {
+      setIsTestingAI(true);
+      setAiTestResult(null);
+      const res = await testAIConnection(aiConfig);
+      setAiTestResult(res);
+    } catch (err: any) {
+      setAiTestResult({
+        success: false,
+        message: err.message || 'Falha ao conectar com o serviço de IA.',
+      });
+    } finally {
+      setIsTestingAI(false);
+    }
+  };
+
   return (
     <div className="p-6 space-y-6 max-w-4xl mx-auto animate-in fade-in">
       <div>
         <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
           <Settings className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
-          Configurações & Segurança dos Dados
+          Configurações & Inteligência Artificial
         </h2>
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          Gerenciamento de cópias de segurança (backups), integridade contábil e portabilidade
+          Gerenciamento do Conselheiro IA, cópias de segurança (backups) e integridade dos dados
         </p>
       </div>
 
@@ -77,7 +120,210 @@ export const SettingsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Backup e Restauração */}
+      {/* 1. Card de Configuração da Inteligência Artificial */}
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
+        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                Conselheiro IA (Tecnologia Gratuita)
+              </h3>
+              <p className="text-xs text-slate-400">
+                Ative o consultor financeiro com IA gratuita pelo Google Gemini ou modelo local via Ollama
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Escolha do Provedor */}
+        <div className="space-y-2">
+          <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+            Provedor de Inteligência Artificial:
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setAiConfig({ ...aiConfig, provider: 'gemini', model: 'gemini-1.5-flash' })}
+              className={`p-3.5 rounded-xl border text-left flex items-start gap-3 transition-all cursor-pointer ${
+                aiConfig.provider === 'gemini'
+                  ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/20 ring-1 ring-indigo-500'
+                  : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+              }`}
+            >
+              <Cpu className="w-5 h-5 text-indigo-500 shrink-0 mt-0.5" />
+              <div>
+                <span className="text-xs font-bold text-slate-900 dark:text-white block">
+                  Google Gemini (Nuvem Gratuita)
+                </span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                  100% gratuito (15 requisições/min). Rápido, sem necessidade de cartão de crédito.
+                </span>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                setAiConfig({
+                  ...aiConfig,
+                  provider: 'ollama',
+                  model: 'llama3.2',
+                  customEndpoint: 'http://localhost:11434/v1',
+                })
+              }
+              className={`p-3.5 rounded-xl border text-left flex items-start gap-3 transition-all cursor-pointer ${
+                aiConfig.provider === 'ollama'
+                  ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 ring-1 ring-emerald-500'
+                  : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+              }`}
+            >
+              <Server className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
+              <div>
+                <span className="text-xs font-bold text-slate-900 dark:text-white block">
+                  Ollama / Local (100% Offline)
+                </span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                  Roda no seu computador via Ollama (Llama 3, Qwen). Privacidade absoluta e sem internet.
+                </span>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        {/* Campos para Gemini */}
+        {aiConfig.provider === 'gemini' && (
+          <div className="space-y-4 pt-1">
+            <div>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                Chave de API do Google Gemini (API Key)
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                  <Key className="w-4 h-4" />
+                </div>
+                <input
+                  type={showApiKey ? 'text' : 'password'}
+                  value={aiConfig.apiKey || ''}
+                  onChange={(e) => setAiConfig({ ...aiConfig, apiKey: e.target.value })}
+                  placeholder="AIzaSy..."
+                  className="w-full pl-9 pr-10 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowApiKey(!showApiKey)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-200"
+                >
+                  {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                <span>Como obter:</span>
+                <a
+                  href="https://aistudio.google.com/app/apikey"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-indigo-500 hover:underline flex items-center gap-1 font-semibold"
+                >
+                  Google AI Studio (Gratuito) <ExternalLink className="w-3 h-3" />
+                </a>
+                <span>— Clique em "Create API Key" e cole aqui.</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                Modelo do Gemini
+              </label>
+              <select
+                value={aiConfig.model}
+                onChange={(e) => setAiConfig({ ...aiConfig, model: e.target.value })}
+                className="w-full py-2 px-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
+              >
+                <option value="gemini-1.5-flash">gemini-1.5-flash (Recomendado — Ultraveloz e gratuito)</option>
+                <option value="gemini-2.0-flash">gemini-2.0-flash (Mais recente e gratuito)</option>
+                <option value="gemini-1.5-pro">gemini-1.5-pro (Raciocínio complexo)</option>
+              </select>
+            </div>
+          </div>
+        )}
+
+        {/* Campos para Ollama / Local */}
+        {aiConfig.provider === 'ollama' && (
+          <div className="space-y-4 pt-1">
+            <div>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                Endpoint URL Local do Ollama
+              </label>
+              <input
+                type="text"
+                value={aiConfig.customEndpoint || 'http://localhost:11434/v1'}
+                onChange={(e) => setAiConfig({ ...aiConfig, customEndpoint: e.target.value })}
+                placeholder="http://localhost:11434/v1"
+                className="w-full py-2 px-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
+              />
+              <span className="text-[11px] text-slate-400 mt-1 block">
+                Certifique-se de executar `ollama run llama3.2` ou seu modelo preferido no terminal.
+              </span>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                Nome do Modelo Instalado no Ollama
+              </label>
+              <input
+                type="text"
+                value={aiConfig.model || 'llama3.2'}
+                onChange={(e) => setAiConfig({ ...aiConfig, model: e.target.value })}
+                placeholder="llama3.2"
+                className="w-full py-2 px-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Feedback do Teste de Conexão */}
+        {aiTestResult && (
+          <div
+            className={`p-3.5 rounded-xl border text-xs font-medium flex items-center gap-2.5 ${
+              aiTestResult.success
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                : 'bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400'
+            }`}
+          >
+            {aiTestResult.success ? (
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+            ) : (
+              <AlertCircle className="w-4 h-4 shrink-0" />
+            )}
+            <span>{aiTestResult.message}</span>
+          </div>
+        )}
+
+        {/* Botões de Ação */}
+        <div className="flex items-center gap-3 pt-2">
+          <button
+            type="button"
+            onClick={handleSaveAI}
+            className="py-2 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm transition-all cursor-pointer"
+          >
+            Salvar Configurações de IA
+          </button>
+
+          <button
+            type="button"
+            onClick={handleTestAI}
+            disabled={isTestingAI}
+            className="py-2 px-4 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all disabled:opacity-50 cursor-pointer"
+          >
+            {isTestingAI ? 'Testando Conexão...' : 'Testar Conexão com IA'}
+          </button>
+        </div>
+      </div>
+
+      {/* 2. Card de Backup e Restauração */}
       <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
         <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
           <ShieldCheck className="w-5 h-5 text-emerald-600" />
@@ -103,7 +349,7 @@ export const SettingsPage: React.FC = () => {
             </div>
             <button
               onClick={handleExportJSON}
-              className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition-all"
+              className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition-all cursor-pointer"
             >
               <Download className="w-4 h-4" />
               Baixar Arquivo de Backup
@@ -133,7 +379,7 @@ export const SettingsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Arquitetura & Portabilidade Mobile */}
+      {/* 3. Arquitetura & Portabilidade Mobile */}
       <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
         <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
           <Smartphone className="w-5 h-5 text-indigo-500" />
