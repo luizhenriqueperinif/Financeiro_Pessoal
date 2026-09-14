@@ -4,6 +4,7 @@ import { TopBar } from './components/TopBar.js';
 import { TransactionModal } from './components/TransactionModal.js';
 import { CategoryModal } from './components/CategoryModal.js';
 import { RecurringModal } from './components/RecurringModal.js';
+import { StatementImportModal } from './components/StatementImportModal.js';
 import { DashboardPage } from './pages/DashboardPage.js';
 import { IncomesPage } from './pages/IncomesPage.js';
 import { ExpensesPage } from './pages/ExpensesPage.js';
@@ -33,6 +34,7 @@ export const App: React.FC = () => {
   const [txModalDate, setTxModalDate] = useState<string | undefined>(undefined);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState<boolean>(false);
   const [isRecurringModalOpen, setIsRecurringModalOpen] = useState<boolean>(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false);
 
   // Feedback / Toast Banner
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -121,6 +123,7 @@ export const App: React.FC = () => {
           onYearMonthChange={setSelectedYearMonth}
           onOpenNewExpense={handleOpenNewExpense}
           onOpenNewIncome={handleOpenNewIncome}
+          onOpenImportStatement={() => setIsImportModalOpen(true)}
           isDarkMode={isDarkMode}
           onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
         />
@@ -227,6 +230,12 @@ export const App: React.FC = () => {
         onClose={() => setIsRecurringModalOpen(false)}
         onSuccess={loadGlobalBalance}
         categories={categories}
+      />
+
+      <StatementImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onSuccess={() => handleTxSuccess('Extrato bancário importado com sucesso!')}
       />
     </div>
   );

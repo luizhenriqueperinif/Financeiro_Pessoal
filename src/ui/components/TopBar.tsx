@@ -6,6 +6,7 @@ import {
   Moon,
   Sun,
   Calendar as CalendarIcon,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { getMonthName } from '../utils/formatters.js';
 
@@ -14,6 +15,7 @@ interface TopBarProps {
   onYearMonthChange: (ym: string) => void;
   onOpenNewExpense: () => void;
   onOpenNewIncome: () => void;
+  onOpenImportStatement: () => void;
   isDarkMode: boolean;
   onToggleDarkMode: () => void;
 }
@@ -23,6 +25,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   onYearMonthChange,
   onOpenNewExpense,
   onOpenNewIncome,
+  onOpenImportStatement,
   isDarkMode,
   onToggleDarkMode,
 }) => {
@@ -103,6 +106,16 @@ export const TopBar: React.FC<TopBarProps> = ({
           ) : (
             <Moon className="w-5 h-5 text-slate-600" />
           )}
+        </button>
+
+        {/* Importar Extrato */}
+        <button
+          onClick={onOpenImportStatement}
+          className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold shadow-sm shadow-purple-600/30 transition-all active:scale-95 cursor-pointer"
+          title="Importar Extrato OFX ou CSV (Nubank, Mercado Pago, etc.)"
+        >
+          <FileSpreadsheet className="w-4 h-4" />
+          <span className="hidden lg:inline">Importar Extrato</span>
         </button>
 
         {/* Nova Receita */}

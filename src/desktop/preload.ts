@@ -37,6 +37,11 @@ const api: IElectronAPI = {
   // Backup e Restauração
   exportBackupJSON: () => ipcRenderer.invoke('backup:exportJSON'),
   importBackupJSON: (jsonContent) => ipcRenderer.invoke('backup:importJSON', jsonContent),
+
+  // Extratos e Conciliação Bancária
+  parseStatement: (fileContent, fileName) => ipcRenderer.invoke('statement:parse', fileContent, fileName),
+  reconcilePreview: (items) => ipcRenderer.invoke('statement:preview', items),
+  reconcileCommit: (items) => ipcRenderer.invoke('statement:commit', items),
 };
 
 contextBridge.exposeInMainWorld('api', api);

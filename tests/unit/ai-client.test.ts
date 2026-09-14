@@ -101,4 +101,115 @@ describe('AIClient (Integração com Provedores Gratuitos de IA)', () => {
     expect(sentBody.contents[0].parts[0].text).toBe('Tenho R$ 5.000 de salário');
     expect(sentBody.contents[1].parts[0].text).toBe('Ótimo, seu orçamento permite planejar.');
   });
+
+  it('migra automaticamente modelo legado gemini-1.5-flash para gemini-3.6-flash', async () => {
+    const config: AIConfig = {
+      provider: 'gemini',
+      apiKey: 'key-test',
+      model: 'gemini-1.5-flash',
+    };
+
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        candidates: [{ content: { parts: [{ text: 'Resposta após migração.' }] } }],
+      }),
+    });
+
+    const response = await generateAdvisorAdvice(config, 'Teste migração', mockFetch as any);
+    expect(response).toBe('Resposta após migração.');
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('gemini-3.6-flash:generateContent'),
+      expect.anything()
+    );
+  });
+
+  it('migra modelo restrito gemini-2.5-flash para gemini-3.6-flash', async () => {
+    const config: AIConfig = {
+      provider: 'gemini',
+      apiKey: 'key-test',
+      model: 'gemini-2.5-flash',
+    };
+
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        candidates: [{ content: { parts: [{ text: 'Resposta após migração 2.5.' }] } }],
+      }),
+    });
+
+    const response = await generateAdvisorAdvice(config, 'Teste migração 2.5', mockFetch as any);
+    expect(response).toBe('Resposta após migração 2.5.');
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('gemini-3.6-flash:generateContent'),
+      expect.anything()
+    );
+  });
+
+  it('consulta e filtra modelos disponíveis do Google AI via fetchAvailableGeminiModels priorizando Gemini 3', async () => {
+    const { fetchAvailableGeminiModels } = await import('../../src/core/services/ai-client.js');
+
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        models: [
+          {
+            name: 'models/gemini-2.5-flash',
+            supportedGenerationMethods: ['generateContent', 'countTokens'],
+          },
+          {
+            name: 'models/text-embedding-004',
+            supportedGenerationMethods: ['embedContent'],
+          },
+          {
+            name: 'models/gemini-3.6-flash',
+            supportedGenerationMethods: ['generateContent'],
+          },
+        ],
+      }),
+    });
+
+    const models = await fetchAvailableGeminiModels('test-key', mockFetch as any);
+    expect(models[0]).toBe('gemini-3.6-flash');
+    expect(models).toContain('gemini-2.5-flash');
+  });
+
+  it('testAIConnection diagnostica modelo não encontrado e sugere alternativa Gemini 3 da conta', async () => {
+    const { testAIConnection } = await import('../../src/core/services/ai-client.js');
+
+    const config: AIConfig = {
+      provider: 'gemini',
+      apiKey: 'test-key',
+      model: 'modelo-antigo-inexistente',
+    };
+
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: async () => ({
+          error: {
+            code: 404,
+            message: 'models/modelo-antigo-inexistente is not found for API version v1beta',
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          models: [
+            {
+              name: 'models/gemini-3.6-flash',
+              supportedGenerationMethods: ['generateContent'],
+            },
+          ],
+        }),
+      });
+
+    const result = await testAIConnection(config, mockFetch as any);
+    expect(result.success).toBe(false);
+    expect(result.suggestedModel).toBe('gemini-3.6-flash');
+    expect(result.availableModels).toContain('gemini-3.6-flash');
+  });
 });

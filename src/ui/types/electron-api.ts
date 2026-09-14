@@ -44,6 +44,11 @@ export interface IElectronAPI {
   // Backup e Restauração
   exportBackupJSON(): Promise<string>;
   importBackupJSON(jsonContent: string): Promise<boolean>;
+
+  // Extratos e Conciliação Bancária
+  parseStatement(fileContent: string, fileName?: string): Promise<import('../../core/domain/statement.js').BankStatementParseResult>;
+  reconcilePreview(items: import('../../core/domain/statement.js').BankStatementItem[]): Promise<import('../../core/domain/statement.js').ReconciliationPreviewItem[]>;
+  reconcileCommit(items: import('../../core/domain/statement.js').ConfirmedStatementItem[]): Promise<import('../../core/domain/statement.js').ReconciliationResult>;
 }
 
 declare global {

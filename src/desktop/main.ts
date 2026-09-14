@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import fs from 'fs';
 
 import { AppDatabase } from '../infra/database/connection.js';
+import { seedUserData } from '../infra/database/seed-user-data.js';
 import { SqliteCategoryRepository } from '../infra/repositories/sqlite-category-repository.js';
 import { SqliteTransactionRepository } from '../infra/repositories/sqlite-transaction-repository.js';
 import { SqliteRecurringRuleRepository } from '../infra/repositories/sqlite-recurring-rule-repository.js';
@@ -41,6 +42,8 @@ import { GetCalendarDataUseCase } from '../core/use-cases/calendar/index.js';
 import { GetFinancialReportsUseCase } from '../core/use-cases/reports/index.js';
 import { CalculateForecastUseCase } from '../core/use-cases/forecast/index.js';
 import { BackupService } from '../core/services/backup-service.js';
+import { StatementParserService } from '../core/services/statement-parser-service.js';
+import { ReconcileStatementUseCase } from '../core/use-cases/statement/reconcile-statement.js';
 
 const currentDir = typeof __dirname !== 'undefined' ? __dirname : process.cwd();
 
@@ -56,6 +59,7 @@ function initializeDatabase() {
   appDb = new AppDatabase(dbPath);
 
   const rawDb = appDb.getRawDb();
+  seedUserData(rawDb, false);
   const categoryRepo = new SqliteCategoryRepository(rawDb);
   const transactionRepo = new SqliteTransactionRepository(rawDb);
   const recurringRepo = new SqliteRecurringRuleRepository(rawDb);
@@ -90,6 +94,8 @@ function initializeDatabase() {
   const getReports = new GetFinancialReportsUseCase(transactionRepo, recurringRepo, installmentRepo, categoryRepo);
   const calculateForecast = new CalculateForecastUseCase(transactionRepo, recurringRepo);
   const backupService = new BackupService(rawDb);
+  const statementParser = new StatementParserService();
+  const reconcileStatement = new ReconcileStatementUseCase(transactionRepo, categoryRepo);
 
   // Registro dos IPC Handlers
   ipcMain.handle('categories:list', (_, type) => listCategories.execute(type));
@@ -125,6 +131,10 @@ function initializeDatabase() {
     backupService.importFromJSON(parsed);
     return true;
   });
+
+  ipcMain.handle('statement:parse', (_, content, filename) => statementParser.parse(content, filename));
+  ipcMain.handle('statement:preview', (_, items) => reconcileStatement.preview(items));
+  ipcMain.handle('statement:commit', (_, items) => reconcileStatement.commit(items));
 }
 
 function createWindow() {

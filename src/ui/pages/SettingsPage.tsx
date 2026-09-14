@@ -14,12 +14,14 @@ import {
   ExternalLink,
   Server,
   Cpu,
+  RefreshCw,
 } from 'lucide-react';
 import { api } from '../services/api.js';
 import {
   AIConfig,
   AIProvider,
   testAIConnection,
+  fetchAvailableGeminiModels,
 } from '../../core/services/ai-client.js';
 import {
   loadStoredAIConfig,
@@ -33,7 +35,15 @@ export const SettingsPage: React.FC = () => {
   // Configurações de IA
   const [aiConfig, setAiConfig] = useState<AIConfig>(() => loadStoredAIConfig());
   const [isTestingAI, setIsTestingAI] = useState(false);
-  const [aiTestResult, setAiTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [isDetectingModels, setIsDetectingModels] = useState(false);
+  const [detectedGeminiModels, setDetectedGeminiModels] = useState<string[]>([]);
+  const [detectStatusMsg, setDetectStatusMsg] = useState<string | null>(null);
+  const [aiTestResult, setAiTestResult] = useState<{
+    success: boolean;
+    message: string;
+    availableModels?: string[];
+    suggestedModel?: string;
+  } | null>(null);
   const [showApiKey, setShowApiKey] = useState(false);
 
   const handleExportJSON = async () => {
@@ -78,12 +88,63 @@ export const SettingsPage: React.FC = () => {
     setTimeout(() => setSuccessMsg(null), 4000);
   };
 
+  const handleDetectModels = async () => {
+    if (!aiConfig.apiKey?.trim()) {
+      setErrorMsg('Informe a API Key do Google Gemini antes de consultar os modelos disponíveis.');
+      setTimeout(() => setErrorMsg(null), 4000);
+      return;
+    }
+    try {
+      setIsDetectingModels(true);
+      setErrorMsg(null);
+      setDetectStatusMsg(null);
+      const models = await fetchAvailableGeminiModels(aiConfig.apiKey);
+      if (models.length === 0) {
+        setErrorMsg('Nenhum modelo compatível com geração de conteúdo foi retornado para esta chave.');
+        setTimeout(() => setErrorMsg(null), 4000);
+      } else {
+        setDetectedGeminiModels(models);
+        // Se o modelo atual não estiver na lista ou for antigo/bloqueado (1.5 / 2.0 / 2.5), seleciona o melhor disponível
+        if (
+          !models.includes(aiConfig.model) ||
+          aiConfig.model.includes('1.5') ||
+          aiConfig.model.includes('2.0') ||
+          aiConfig.model === 'gemini-2.5-flash'
+        ) {
+          const best =
+            models.find(
+              (m) =>
+                m === 'gemini-3.6-flash' ||
+                m === 'gemini-3.8-flash' ||
+                m === 'gemini-3.7-flash' ||
+                m === 'gemini-3.1-flash-lite'
+            ) ||
+            models.find((m) => m.includes('flash') && !m.includes('1.5') && !m.includes('2.0') && !m.includes('2.5')) ||
+            models[0];
+          setAiConfig((prev) => ({ ...prev, model: best }));
+          setDetectStatusMsg(`${models.length} modelos detectados! Modelo "${best}" selecionado automaticamente.`);
+        } else {
+          setDetectStatusMsg(`${models.length} modelos disponíveis encontrados na sua conta Google!`);
+        }
+        setTimeout(() => setDetectStatusMsg(null), 5000);
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Falha ao buscar modelos disponíveis no Google AI.');
+      setTimeout(() => setErrorMsg(null), 5000);
+    } finally {
+      setIsDetectingModels(false);
+    }
+  };
+
   const handleTestAI = async () => {
     try {
       setIsTestingAI(true);
       setAiTestResult(null);
       const res = await testAIConnection(aiConfig);
       setAiTestResult(res);
+      if (res.availableModels && res.availableModels.length > 0) {
+        setDetectedGeminiModels(res.availableModels);
+      }
     } catch (err: any) {
       setAiTestResult({
         success: false,
@@ -146,7 +207,7 @@ export const SettingsPage: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button
               type="button"
-              onClick={() => setAiConfig({ ...aiConfig, provider: 'gemini', model: 'gemini-1.5-flash' })}
+              onClick={() => setAiConfig({ ...aiConfig, provider: 'gemini', model: 'gemini-3.6-flash' })}
               className={`p-3.5 rounded-xl border text-left flex items-start gap-3 transition-all cursor-pointer ${
                 aiConfig.provider === 'gemini'
                   ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/20 ring-1 ring-indigo-500'
@@ -234,17 +295,72 @@ export const SettingsPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                Modelo do Gemini
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Modelo do Gemini
+                </label>
+                <button
+                  type="button"
+                  onClick={handleDetectModels}
+                  disabled={isDetectingModels || !aiConfig.apiKey?.trim()}
+                  className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 flex items-center gap-1 disabled:opacity-40 cursor-pointer"
+                  title="Consulta os modelos autorizados para a sua chave no Google AI Studio"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isDetectingModels ? 'animate-spin' : ''}`} />
+                  {isDetectingModels ? 'Consultando...' : 'Detectar modelos da minha chave'}
+                </button>
+              </div>
+
+              {detectStatusMsg && (
+                <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mb-1.5 font-medium">
+                  {detectStatusMsg}
+                </p>
+              )}
+
               <select
                 value={aiConfig.model}
                 onChange={(e) => setAiConfig({ ...aiConfig, model: e.target.value })}
                 className="w-full py-2 px-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
               >
-                <option value="gemini-1.5-flash">gemini-1.5-flash (Recomendado — Ultraveloz e gratuito)</option>
-                <option value="gemini-2.0-flash">gemini-2.0-flash (Mais recente e gratuito)</option>
-                <option value="gemini-1.5-pro">gemini-1.5-pro (Raciocínio complexo)</option>
+                <option value="gemini-3.6-flash">gemini-3.6-flash (Recomendado — Oficial do Google)</option>
+                <option value="gemini-3.8-flash">gemini-3.8-flash (Mais recente e ultraveloz)</option>
+                <option value="gemini-3.7-flash">gemini-3.7-flash (Raciocínio avançado e veloz)</option>
+                <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (Mais leve e econômico)</option>
+                <option value="gemini-3.1-pro-preview">gemini-3.1-pro-preview (Raciocínio complexo / Pro)</option>
+
+                {/* Modelos adicionais detectados na conta Google */}
+                {detectedGeminiModels
+                  .filter(
+                    (m) =>
+                      m !== 'gemini-3.6-flash' &&
+                      m !== 'gemini-3.8-flash' &&
+                      m !== 'gemini-3.7-flash' &&
+                      m !== 'gemini-3.1-flash-lite' &&
+                      m !== 'gemini-3.1-pro-preview' &&
+                      !m.includes('1.5') &&
+                      !m.includes('2.0') &&
+                      m !== 'gemini-2.5-flash'
+                  )
+                  .map((m) => (
+                    <option key={m} value={m}>
+                      {m} (Disponível na sua conta)
+                    </option>
+                  ))}
+
+                {/* Caso o modelo atual não esteja na lista e seja customizado */}
+                {![
+                  'gemini-3.6-flash',
+                  'gemini-3.8-flash',
+                  'gemini-3.7-flash',
+                  'gemini-3.1-flash-lite',
+                  'gemini-3.1-pro-preview',
+                  ...detectedGeminiModels,
+                ].includes(aiConfig.model) &&
+                  aiConfig.model && (
+                    <option value={aiConfig.model}>
+                      {aiConfig.model} (Configuração Atual)
+                    </option>
+                  )}
               </select>
             </div>
           </div>
@@ -287,18 +403,37 @@ export const SettingsPage: React.FC = () => {
         {/* Feedback do Teste de Conexão */}
         {aiTestResult && (
           <div
-            className={`p-3.5 rounded-xl border text-xs font-medium flex items-center gap-2.5 ${
+            className={`p-3.5 rounded-xl border text-xs font-medium flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 ${
               aiTestResult.success
                 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
                 : 'bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400'
             }`}
           >
-            {aiTestResult.success ? (
-              <CheckCircle2 className="w-4 h-4 shrink-0" />
-            ) : (
-              <AlertCircle className="w-4 h-4 shrink-0" />
+            <div className="flex items-center gap-2.5">
+              {aiTestResult.success ? (
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 shrink-0" />
+              )}
+              <span>{aiTestResult.message}</span>
+            </div>
+
+            {aiTestResult.suggestedModel && (
+              <button
+                type="button"
+                onClick={() => {
+                  const newModel = aiTestResult.suggestedModel!;
+                  setAiConfig((prev) => ({ ...prev, model: newModel }));
+                  setAiTestResult({
+                    success: false,
+                    message: `Modelo atualizado para "${newModel}". Clique em "Testar Conexão com IA" novamente para validar!`,
+                  });
+                }}
+                className="text-xs font-bold underline hover:opacity-80 shrink-0 cursor-pointer self-start sm:self-auto"
+              >
+                Mudar para {aiTestResult.suggestedModel}
+              </button>
             )}
-            <span>{aiTestResult.message}</span>
           </div>
         )}
 
