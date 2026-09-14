@@ -58,4 +58,23 @@ export class DateUtils {
     }
     return months;
   }
+
+  /**
+   * Retorna o total de dias de um mês no formato YYYY-MM.
+   */
+  static getDaysInMonth(yearMonth: string): number {
+    const [yStr, mStr] = yearMonth.split('-');
+    const year = parseInt(yStr, 10);
+    const month = parseInt(mStr, 10);
+    return new Date(year, month, 0).getDate();
+  }
+
+  /**
+   * Retorna a diferença em dias entre dateA e dateB (dateA - dateB) em dias inteiros.
+   */
+  static diffInDays(dateA: string, dateB: string): number {
+    const msA = new Date(`${dateA}T00:00:00Z`).getTime();
+    const msB = new Date(`${dateB}T00:00:00Z`).getTime();
+    return Math.round((msA - msB) / (1000 * 60 * 60 * 24));
+  }
 }

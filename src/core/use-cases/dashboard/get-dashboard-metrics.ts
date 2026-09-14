@@ -9,6 +9,7 @@ import {
 } from '../../domain/repositories.js';
 import { ProcessRecurringInstancesUseCase } from '../recurring/process-recurring-instances.js';
 import { CalculateForecastUseCase } from '../forecast/calculate-forecast.js';
+import { CalculateFinancialAlertsUseCase } from './calculate-financial-alerts.js';
 import { DateUtils } from '../../utils/date-utils.js';
 
 const MONTH_NAMES = [
@@ -29,6 +30,7 @@ const MONTH_NAMES = [
 export class GetDashboardMetricsUseCase {
   private processRecurring: ProcessRecurringInstancesUseCase;
   private calculateForecast: CalculateForecastUseCase;
+  private calculateAlerts: CalculateFinancialAlertsUseCase;
 
   constructor(
     private transactionRepo: ITransactionRepository,
@@ -42,6 +44,7 @@ export class GetDashboardMetricsUseCase {
       transactionRepo,
       recurringRepo
     );
+    this.calculateAlerts = new CalculateFinancialAlertsUseCase();
   }
 
   execute(selectedYearMonth?: string): DashboardMetrics {
@@ -176,6 +179,15 @@ export class GetDashboardMetricsUseCase {
     // 5. Previsão para os próximos 6 meses
     const forecast = this.calculateForecast.execute(targetYM, 6);
 
+    // 6. Alertas e Inteligência Financeira
+    const alerts = this.calculateAlerts.execute({
+      selectedYearMonth: targetYM,
+      totalMonthIncomesCents: totalMonthIncomesProjected,
+      totalMonthExpensesProjectedCents: totalMonthExpensesProjected,
+      transactions: allTransactions,
+      todayDate: today,
+    });
+
     return {
       selectedYearMonth: targetYM,
       currentBalanceCents,
@@ -190,6 +202,7 @@ export class GetDashboardMetricsUseCase {
       expensesByCategory,
       monthlyHistory,
       forecast,
+      alerts,
     };
   }
 }

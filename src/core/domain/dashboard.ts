@@ -1,4 +1,5 @@
 import { ForecastResult } from './forecast.js';
+import { FinancialAlertsSummary } from './alerts.js';
 
 export interface CategorySummary {
   categoryId: string;
@@ -29,4 +30,6 @@ export interface DashboardMetrics {
   expensesByCategory: CategorySummary[];
   monthlyHistory: MonthlyHistoryItem[]; // Últimos 6 meses para o gráfico comparativo
   forecast: ForecastResult; // Próximos 6 meses
+  alerts: FinancialAlertsSummary; // Alertas e inteligência proativa de orçamento
 }
+

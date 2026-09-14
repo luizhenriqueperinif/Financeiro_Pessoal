@@ -51,3 +51,18 @@ _Avoid_: Mensalidade, prestação
 **Previsão Financeira**:
 Cálculo prospectivo mensal que consolida receitas programadas, despesas pontuais, parcelas ativas e despesas fixas para projetar o comprometimento de renda futuro.
 _Avoid_: Estimativa avulsa, fluxo teórico
+
+### Alertas e Inteligência Financeira
+
+**Alerta de Comprometimento**:
+Classificação da saúde financeira do período baseada na relação entre despesas projetadas e receitas previstas (Saudável <= 70%, Atenção entre 70% e 85%, Crítico > 85% ou déficit).
+_Avoid_: Aviso de limite, trava de gastos
+
+**Orçamento Diário Disponível**:
+Montante financeiro líquido seguro fracionado pelos dias restantes do mês civil para orientar a cadência de desembolsos do usuário e evitar saldo negativo ao final do período.
+_Avoid_: Cota diária, limite de gastos diário
+
+**Lembrete de Vencimento**:
+Notificação situacional sobre obrigações financeiras imediatas (despesas atrasadas, despesas a vencer nos próximos dias e receitas esperadas não confirmadas).
+_Avoid_: Aviso de conta, push de cobrança
+

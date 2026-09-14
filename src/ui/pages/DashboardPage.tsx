@@ -25,6 +25,7 @@ import {
 import { DashboardMetrics } from '../../core/domain/dashboard.js';
 import { formatMoney } from '../utils/formatters.js';
 import { api } from '../services/api.js';
+import { FinancialAlertsBanner } from '../components/FinancialAlertsBanner.js';
 
 interface DashboardPageProps {
   selectedYearMonth: string;
@@ -56,6 +57,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     }
   };
 
+  const handleQuickPay = async (transactionId: string) => {
+    try {
+      await api.markTransactionPaid(transactionId);
+      await loadData();
+    } catch (err) {
+      console.error('Erro ao marcar como pago via lembrete rápido:', err);
+    }
+  };
+
   useEffect(() => {
     loadData();
   }, [selectedYearMonth]);
@@ -83,6 +93,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto animate-in fade-in duration-150">
+      {/* 0. Banner Inteligente de Alertas e Lembretes Proativos */}
+      {metrics.alerts && (
+        <FinancialAlertsBanner
+          alerts={metrics.alerts}
+          onQuickPay={handleQuickPay}
+        />
+      )}
+
       {/* 1. Grid dos Cards Principais de Indicadores */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Saldo Atual */}

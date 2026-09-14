@@ -265,6 +265,30 @@ class ApiClient implements IElectronAPI {
           { yearMonth: '2026-11', monthName: 'Novembro/2026', incomeCents: 500000, expenseCents: 270000, projectedBalanceCents: 230000, accumulatedBalanceCents: 1290000, commitmentPercentage: 54, isHighCommitment: false, breakdown: { fixedExpensesCents: 150000, installmentExpensesCents: 60000, variableExpensesCents: 60000, recurringIncomesCents: 500000, variableIncomesCents: 0 } },
         ],
       },
+      alerts: {
+        commitmentLevel: 'HEALTHY',
+        commitmentPercentage: 50,
+        totalIncomeCents: 600000,
+        totalProjectedExpenseCents: 300000,
+        remainingBalanceCents: 300000,
+        dailyAvailableBudgetCents: 17647,
+        daysRemainingInMonth: 17,
+        hasDeficit: false,
+        deficitCents: 0,
+        reminders: [
+          {
+            id: 'rem-mock-1',
+            transactionId: 'mock-tx-1',
+            type: 'UPCOMING_EXPENSE',
+            title: 'Internet Fibra',
+            amountCents: 12000,
+            dueDate: `${ym}-20`,
+            isCritical: false,
+            daysDiff: 3,
+          },
+        ],
+        hasCriticalAlert: false,
+      },
     };
   }
 

@@ -99,6 +99,10 @@ describe('Dashboard, Calendar and Reports Use Cases', () => {
     expect(metrics.expensesByCategory.length).toBeGreaterThan(0);
     expect(metrics.monthlyHistory.length).toBe(6);
     expect(metrics.forecast.months.length).toBe(6);
+    expect(metrics.alerts).toBeDefined();
+    expect(metrics.alerts.commitmentLevel).toBe('HEALTHY');
+    expect(metrics.alerts.commitmentPercentage).toBe(19);
+    expect(metrics.alerts.remainingBalanceCents).toBe(405000);
   });
 
   it('constrói dados estruturados do Calendário com agregação diária', () => {
