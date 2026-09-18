@@ -14,6 +14,7 @@ const api: IElectronAPI = {
   updateTransaction: (id, dto) => ipcRenderer.invoke('transactions:update', id, dto),
   deleteTransaction: (id) => ipcRenderer.invoke('transactions:delete', id),
   markTransactionPaid: (id, paymentDate) => ipcRenderer.invoke('transactions:markPaid', id, paymentDate),
+  markTransactionUnpaid: (id) => ipcRenderer.invoke('transactions:markUnpaid', id),
 
   // Despesas Fixas
   listRecurringRules: (activeOnly) => ipcRenderer.invoke('recurring:list', activeOnly),
@@ -37,6 +38,9 @@ const api: IElectronAPI = {
   // Backup e Restauração
   exportBackupJSON: () => ipcRenderer.invoke('backup:exportJSON'),
   importBackupJSON: (jsonContent) => ipcRenderer.invoke('backup:importJSON', jsonContent),
+
+  // Limpeza de Dados
+  clearAllData: (includeCategories) => ipcRenderer.invoke('data:clearAll', includeCategories),
 };
 
 contextBridge.exposeInMainWorld('api', api);

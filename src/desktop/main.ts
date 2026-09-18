@@ -21,6 +21,7 @@ import {
   UpdateTransactionUseCase,
   DeleteTransactionUseCase,
   MarkTransactionPaidUseCase,
+  MarkTransactionUnpaidUseCase,
 } from '../core/use-cases/transactions/index.js';
 import {
   CreateRecurringRuleUseCase,
@@ -72,6 +73,7 @@ function initializeDatabase() {
   const updateTransaction = new UpdateTransactionUseCase(transactionRepo, categoryRepo);
   const deleteTransaction = new DeleteTransactionUseCase(transactionRepo);
   const markTransactionPaid = new MarkTransactionPaidUseCase(transactionRepo);
+  const markTransactionUnpaid = new MarkTransactionUnpaidUseCase(transactionRepo);
 
   const createRecurring = new CreateRecurringRuleUseCase(recurringRepo, categoryRepo);
   const listRecurring = new ListRecurringRulesUseCase(recurringRepo);
@@ -102,6 +104,7 @@ function initializeDatabase() {
   ipcMain.handle('transactions:update', (_, id, dto) => updateTransaction.execute(id, dto));
   ipcMain.handle('transactions:delete', (_, id) => deleteTransaction.execute(id));
   ipcMain.handle('transactions:markPaid', (_, id, paymentDate) => markTransactionPaid.execute(id, paymentDate));
+  ipcMain.handle('transactions:markUnpaid', (_, id) => markTransactionUnpaid.execute(id));
 
   ipcMain.handle('recurring:list', (_, activeOnly) => listRecurring.execute(activeOnly));
   ipcMain.handle('recurring:create', (_, dto) => createRecurring.execute(dto));
@@ -123,6 +126,20 @@ function initializeDatabase() {
   ipcMain.handle('backup:importJSON', (_, jsonStr) => {
     const parsed = JSON.parse(jsonStr);
     backupService.importFromJSON(parsed);
+    return true;
+  });
+
+  ipcMain.handle('data:clearAll', (_, includeCategories?: boolean) => {
+    const rawDb = appDb!.getRawDb();
+    rawDb.transaction(() => {
+      rawDb.prepare('DELETE FROM transactions').run();
+      rawDb.prepare('DELETE FROM installments').run();
+      rawDb.prepare('DELETE FROM installment_purchases').run();
+      rawDb.prepare('DELETE FROM recurring_rules').run();
+      if (includeCategories) {
+        rawDb.prepare('DELETE FROM categories').run();
+      }
+    })();
     return true;
   });
 }

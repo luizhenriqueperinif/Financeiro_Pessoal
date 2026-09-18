@@ -247,6 +247,35 @@ export class SqliteTransactionRepository implements ITransactionRepository {
     return this.findById(id);
   }
 
+  markAsUnpaid(id: string): Transaction | null {
+    const existing = this.findById(id);
+    if (!existing) return null;
+
+    const today = new Date().toISOString().slice(0, 10);
+    const newStatus: TransactionStatus = existing.date < today ? 'OVERDUE' : 'PENDING';
+    const now = new Date().toISOString();
+
+    const stmt = this.db.prepare(`
+      UPDATE transactions
+      SET status = ?, payment_date = NULL, updated_at = ?
+      WHERE id = ?
+    `);
+
+    stmt.run(newStatus, now, id);
+
+    // Se estiver vinculada a uma parcela, atualiza também o status da parcela
+    if (existing.installmentId) {
+      const installmentStatus = existing.date < today ? 'OVERDUE' : 'PENDING';
+      this.db.prepare(`
+        UPDATE installments
+        SET status = ?, payment_date = NULL, updated_at = ?
+        WHERE id = ?
+      `).run(installmentStatus, now, existing.installmentId);
+    }
+
+    return this.findById(id);
+  }
+
   findByRecurringInstance(ruleId: string, month: string): Transaction | null {
     // month no formato YYYY-MM
     const stmt = this.db.prepare(`

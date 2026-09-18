@@ -21,6 +21,7 @@ export interface IElectronAPI {
   updateTransaction(id: string, dto: UpdateTransactionDTO): Promise<Transaction>;
   deleteTransaction(id: string): Promise<boolean>;
   markTransactionPaid(id: string, paymentDate?: string): Promise<Transaction>;
+  markTransactionUnpaid(id: string): Promise<Transaction>;
 
   // Despesas Fixas
   listRecurringRules(activeOnly?: boolean): Promise<RecurringRule[]>;
@@ -44,6 +45,9 @@ export interface IElectronAPI {
   // Backup e Restauração
   exportBackupJSON(): Promise<string>;
   importBackupJSON(jsonContent: string): Promise<boolean>;
+
+  // Limpeza de Dados
+  clearAllData(includeCategories?: boolean): Promise<boolean>;
 }
 
 declare global {
