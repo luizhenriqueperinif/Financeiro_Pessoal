@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
   Plus,
-  Search,
   CheckCircle2,
   XCircle,
   Trash2,
@@ -14,6 +13,12 @@ import { Transaction } from '../../core/domain/transaction.js';
 import { Category } from '../../core/domain/category.js';
 import { formatMoney, formatDate } from '../utils/formatters.js';
 import { api } from '../services/api.js';
+import {
+  TransactionFiltersBar,
+  EMPTY_FILTERS,
+  buildListFilters,
+  hasCustomPeriod,
+} from '../components/TransactionFiltersBar.js';
 
 interface ExpensesPageProps {
   selectedYearMonth: string;
@@ -27,23 +32,13 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
   categories,
 }) => {
   const [expenses, setExpenses] = useState<Transaction[]>([]);
-  const [search, setSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('');
-  const [paymentMethodFilter, setPaymentMethodFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [loading, setLoading] = useState(true);
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const res = await api.listTransactions({
-        yearMonth: selectedYearMonth,
-        type: 'EXPENSE',
-        categoryId: selectedCategory || undefined,
-        paymentMethod: paymentMethodFilter as any || undefined,
-        status: statusFilter as any || undefined,
-        search: search || undefined,
-      });
+      const res = await api.listTransactions(buildListFilters(filters, selectedYearMonth, 'EXPENSE'));
       setExpenses(res);
     } catch (err) {
       console.error('Erro ao carregar despesas', err);
@@ -54,7 +49,7 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
 
   useEffect(() => {
     loadData();
-  }, [selectedYearMonth, selectedCategory, paymentMethodFilter, statusFilter, search]);
+  }, [selectedYearMonth, filters]);
 
   const handleMarkPaid = async (id: string) => {
     try {
@@ -65,9 +60,11 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
     }
   };
 
-  const handleMarkUnpaid = async (id: string) => {
+  const handleMarkUnpaid = async (item: Transaction) => {
+    const paidOn = item.paymentDate ? ` feito em ${formatDate(item.paymentDate)}` : '';
+    if (!confirm(`Desmarcar o pagamento de "${item.description}"${paidOn}?`)) return;
     try {
-      await api.markTransactionUnpaid(id);
+      await api.markTransactionUnpaid(item.id);
       loadData();
     } catch (err) {
       alert('Erro ao desmarcar despesa como paga');
@@ -92,8 +89,6 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
   const pendingCents = expenses
     .filter((e) => e.status === 'PENDING' || e.status === 'OVERDUE')
     .reduce((acc, cur) => acc + cur.amountCents, 0);
-
-  const expenseCategories = categories.filter((c) => c.type === 'EXPENSE');
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto animate-in fade-in">
@@ -120,7 +115,7 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
       {/* Cards de Resumo */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-          <span className="text-xs text-slate-500 block font-medium">Total de Despesas do Mês</span>
+          <span className="text-xs text-slate-500 block font-medium">Total de Despesas {hasCustomPeriod(filters) ? 'do Período' : 'do Mês'}</span>
           <span className="text-xl font-black text-slate-900 dark:text-white">
             {formatMoney(totalExpenseCents)}
           </span>
@@ -141,60 +136,7 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
         </div>
       </div>
 
-      {/* Barra de Filtros */}
-      <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-wrap gap-3 items-center justify-between">
-        <div className="flex items-center gap-2 flex-1 min-w-[240px]">
-          <div className="relative w-full">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Pesquisar por descrição ou nota..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300"
-          >
-            <option value="">Todas Categorias</option>
-            {expenseCategories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={paymentMethodFilter}
-            onChange={(e) => setPaymentMethodFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300"
-          >
-            <option value="">Todas Formas</option>
-            <option value="CREDIT">Cartão de Crédito</option>
-            <option value="PIX">PIX</option>
-            <option value="BOLETO">Boleto</option>
-            <option value="DEBIT">Débito</option>
-            <option value="MONEY">Dinheiro</option>
-          </select>
-
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300"
-          >
-            <option value="">Todos Status</option>
-            <option value="PAID">Paga</option>
-            <option value="PENDING">Pendente</option>
-            <option value="OVERDUE">Atrasada</option>
-          </select>
-        </div>
-      </div>
+      <TransactionFiltersBar type="EXPENSE" categories={categories} value={filters} onChange={setFilters} />
 
       {/* Tabela de Lançamentos */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
@@ -295,7 +237,7 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
                           )}
                           {isPaid && (
                             <button
-                              onClick={() => handleMarkUnpaid(item.id)}
+                              onClick={() => handleMarkUnpaid(item)}
                               className="px-2.5 py-1 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 rounded-lg text-xs font-bold border border-amber-500/30 flex items-center gap-1 transition-all"
                               title="Desmarcar como paga"
                             >

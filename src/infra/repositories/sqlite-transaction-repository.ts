@@ -5,6 +5,7 @@ import {
   CreateTransactionDTO,
   UpdateTransactionDTO,
   TransactionFilters,
+  TransactionSort,
 } from '../../core/domain/transaction.js';
 import { ITransactionRepository } from '../../core/domain/repositories.js';
 import {
@@ -170,13 +171,35 @@ export class SqliteTransactionRepository implements ITransactionRepository {
       query += ' AND t.status = ?';
       params.push(filters.status);
     }
+    if (filters?.minAmountCents !== undefined) {
+      query += ' AND t.amount_cents >= ?';
+      params.push(filters.minAmountCents);
+    }
+    if (filters?.maxAmountCents !== undefined) {
+      query += ' AND t.amount_cents <= ?';
+      params.push(filters.maxAmountCents);
+    }
+    if (filters?.origin === 'INSTALLMENT') {
+      query += ' AND t.installment_id IS NOT NULL';
+    } else if (filters?.origin === 'RECURRING') {
+      query += ' AND t.recurring_rule_id IS NOT NULL';
+    } else if (filters?.origin === 'MANUAL') {
+      query += ' AND t.installment_id IS NULL AND t.recurring_rule_id IS NULL';
+    }
     if (filters?.search && filters.search.trim()) {
       query += " AND (LOWER(t.description) LIKE ? OR LOWER(COALESCE(t.notes, '')) LIKE ?)";
       const term = `%${filters.search.trim().toLowerCase()}%`;
       params.push(term, term);
     }
 
-    query += ' ORDER BY t.date DESC, t.created_at DESC';
+    const orderBy: Record<TransactionSort, string> = {
+      DATE_DESC: 't.date DESC, t.created_at DESC',
+      DATE_ASC: 't.date ASC, t.created_at ASC',
+      AMOUNT_DESC: 't.amount_cents DESC, t.date DESC',
+      AMOUNT_ASC: 't.amount_cents ASC, t.date DESC',
+      DESCRIPTION: 't.description COLLATE NOCASE ASC, t.date DESC',
+    };
+    query += ` ORDER BY ${orderBy[filters?.sortBy ?? 'DATE_DESC'] ?? orderBy.DATE_DESC}`;
 
     const rows = this.db.prepare(query).all(...params) as TransactionRow[];
     return rows.map((r) => this.mapToDomain(r));

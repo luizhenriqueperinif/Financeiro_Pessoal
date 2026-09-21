@@ -33,6 +33,7 @@ export interface IElectronAPI {
   listInstallmentPurchases(): Promise<InstallmentPurchase[]>;
   createInstallmentPurchase(dto: CreateInstallmentPurchaseDTO): Promise<InstallmentPurchase>;
   payInstallment(id: string, paymentDate?: string): Promise<Installment>;
+  unpayInstallment(id: string): Promise<Installment>;
   updateInstallment(id: string, dto: UpdateInstallmentDTO): Promise<Installment>;
   deleteInstallmentPurchase(id: string): Promise<boolean>;
 

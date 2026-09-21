@@ -1,17 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import {
   Plus,
-  Search,
   CheckCircle2,
+  XCircle,
   Trash2,
   ArrowUpCircle,
-  Tag,
-  Filter,
+  Repeat,
 } from 'lucide-react';
 import { Transaction } from '../../core/domain/transaction.js';
 import { Category } from '../../core/domain/category.js';
 import { formatMoney, formatDate } from '../utils/formatters.js';
 import { api } from '../services/api.js';
+import {
+  TransactionFiltersBar,
+  EMPTY_FILTERS,
+  buildListFilters,
+  hasCustomPeriod,
+} from '../components/TransactionFiltersBar.js';
 
 interface IncomesPageProps {
   selectedYearMonth: string;
@@ -25,21 +30,13 @@ export const IncomesPage: React.FC<IncomesPageProps> = ({
   categories,
 }) => {
   const [incomes, setIncomes] = useState<Transaction[]>([]);
-  const [search, setSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [loading, setLoading] = useState(true);
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const res = await api.listTransactions({
-        yearMonth: selectedYearMonth,
-        type: 'INCOME',
-        categoryId: selectedCategory || undefined,
-        status: statusFilter as any || undefined,
-        search: search || undefined,
-      });
+      const res = await api.listTransactions(buildListFilters(filters, selectedYearMonth, 'INCOME'));
       setIncomes(res);
     } catch (err) {
       console.error('Erro ao carregar receitas', err);
@@ -50,7 +47,7 @@ export const IncomesPage: React.FC<IncomesPageProps> = ({
 
   useEffect(() => {
     loadData();
-  }, [selectedYearMonth, selectedCategory, statusFilter, search]);
+  }, [selectedYearMonth, filters]);
 
   const handleMarkReceived = async (id: string) => {
     try {
@@ -58,6 +55,17 @@ export const IncomesPage: React.FC<IncomesPageProps> = ({
       loadData();
     } catch (err) {
       alert('Erro ao marcar receita como recebida');
+    }
+  };
+
+  const handleMarkNotReceived = async (item: Transaction) => {
+    const receivedOn = item.paymentDate ? ` em ${formatDate(item.paymentDate)}` : '';
+    if (!confirm(`Desmarcar o recebimento de "${item.description}"${receivedOn}?`)) return;
+    try {
+      await api.markTransactionUnpaid(item.id);
+      loadData();
+    } catch (err) {
+      alert('Erro ao desmarcar receita como recebida');
     }
   };
 
@@ -76,8 +84,6 @@ export const IncomesPage: React.FC<IncomesPageProps> = ({
   const receivedCents = incomes
     .filter((i) => i.status === 'RECEIVED' || i.status === 'PAID')
     .reduce((acc, cur) => acc + cur.amountCents, 0);
-
-  const incomeCategories = categories.filter((c) => c.type === 'INCOME');
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto animate-in fade-in">
@@ -105,7 +111,7 @@ export const IncomesPage: React.FC<IncomesPageProps> = ({
       {/* Cards de Resumo */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-          <span className="text-xs text-slate-500 block font-medium">Total de Receitas no Mês</span>
+          <span className="text-xs text-slate-500 block font-medium">Total de Receitas {hasCustomPeriod(filters) ? 'no Período' : 'no Mês'}</span>
           <span className="text-xl font-black text-emerald-600 dark:text-emerald-400">
             {formatMoney(totalIncomesCents)}
           </span>
@@ -126,47 +132,7 @@ export const IncomesPage: React.FC<IncomesPageProps> = ({
         </div>
       </div>
 
-      {/* Barra de Filtros e Busca */}
-      <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-wrap gap-3 items-center justify-between">
-        <div className="flex items-center gap-2 flex-1 min-w-[240px]">
-          <div className="relative w-full">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Pesquisar por descrição ou nota..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300"
-          >
-            <option value="">Todas Categorias</option>
-            {incomeCategories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300"
-          >
-            <option value="">Todos Status</option>
-            <option value="RECEIVED">Recebida</option>
-            <option value="PENDING">Prevista</option>
-            <option value="CANCELLED">Cancelada</option>
-          </select>
-        </div>
-      </div>
+      <TransactionFiltersBar type="INCOME" categories={categories} value={filters} onChange={setFilters} />
 
       {/* Tabela de Lançamentos */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
@@ -200,13 +166,23 @@ export const IncomesPage: React.FC<IncomesPageProps> = ({
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {incomes.map((item) => {
                   const isReceived = item.status === 'RECEIVED' || item.status === 'PAID';
+                  const isOverdue = item.status === 'OVERDUE';
+                  const isCancelled = item.status === 'CANCELLED';
                   return (
                     <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                       <td className="py-3 px-4 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                         {formatDate(item.date)}
                       </td>
                       <td className="py-3 px-4 font-semibold text-slate-900 dark:text-white">
-                        {item.description}
+                        <div className="flex items-center gap-2">
+                          <span>{item.description}</span>
+                          {item.recurringRuleId && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300">
+                              <Repeat className="w-3 h-3" />
+                              Fixa
+                            </span>
+                          )}
+                        </div>
                         {item.notes && <span className="text-[10px] text-slate-400 block font-normal">{item.notes}</span>}
                       </td>
                       <td className="py-3 px-4">
@@ -230,15 +206,28 @@ export const IncomesPage: React.FC<IncomesPageProps> = ({
                           className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
                             isReceived
                               ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+                              : isOverdue
+                              ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300'
+                              : isCancelled
+                              ? 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
                               : 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
                           }`}
                         >
-                          {isReceived ? 'Recebida' : 'Prevista'}
+                          {isReceived ? 'Recebida' : isOverdue ? 'Atrasada' : isCancelled ? 'Cancelada' : 'Pendente'}
                         </span>
                       </td>
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1">
-                          {!isReceived && (
+                          {isReceived && (
+                            <button
+                              onClick={() => handleMarkNotReceived(item)}
+                              className="p-1.5 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 rounded-lg transition-colors"
+                              title="Desmarcar como recebida"
+                            >
+                              <XCircle className="w-4 h-4" />
+                            </button>
+                          )}
+                          {!isReceived && !isCancelled && (
                             <button
                               onClick={() => handleMarkReceived(item.id)}
                               className="p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg transition-colors"

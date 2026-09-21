@@ -34,6 +34,7 @@ import {
   CreateInstallmentPurchaseUseCase,
   ListInstallmentPurchasesUseCase,
   PayInstallmentUseCase,
+  UnpayInstallmentUseCase,
   UpdateInstallmentUseCase,
   DeleteInstallmentPurchaseUseCase,
 } from '../core/use-cases/installments/index.js';
@@ -103,6 +104,7 @@ function initializeDatabase() {
   const createInstallmentPurchase = new CreateInstallmentPurchaseUseCase(installmentRepo, categoryRepo);
   const listInstallments = new ListInstallmentPurchasesUseCase(installmentRepo);
   const payInstallment = new PayInstallmentUseCase(installmentRepo);
+  const unpayInstallment = new UnpayInstallmentUseCase(installmentRepo);
   const updateInstallment = new UpdateInstallmentUseCase(installmentRepo);
   const deleteInstallmentPurchase = new DeleteInstallmentPurchaseUseCase(installmentRepo);
 
@@ -137,6 +139,7 @@ function initializeDatabase() {
   ipcMain.handle('installments:list', () => listInstallments.execute());
   ipcMain.handle('installments:create', (_, dto) => createInstallmentPurchase.execute(dto));
   ipcMain.handle('installments:pay', (_, id, date) => payInstallment.execute(id, date));
+  ipcMain.handle('installments:unpay', (_, id) => unpayInstallment.execute(id));
   ipcMain.handle('installments:update', (_, id, dto) => updateInstallment.execute(id, dto));
   ipcMain.handle('installments:delete', (_, id) => deleteInstallmentPurchase.execute(id));
 

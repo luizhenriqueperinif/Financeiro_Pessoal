@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   CreditCard,
   CheckCircle2,
+  XCircle,
   Trash2,
   Calendar,
   ChevronDown,
@@ -47,6 +48,17 @@ export const InstallmentsPage: React.FC<InstallmentsPageProps> = ({
       loadData();
     } catch (err) {
       alert('Erro ao pagar parcela');
+    }
+  };
+
+  const handleUnpayInstallment = async (installmentId: string, label: string, paymentDate?: string | null) => {
+    const paidOn = paymentDate ? ` feito em ${formatDate(paymentDate)}` : '';
+    if (!confirm(`Desmarcar o pagamento da parcela ${label}${paidOn}?`)) return;
+    try {
+      await api.unpayInstallment(installmentId);
+      loadData();
+    } catch (err) {
+      alert('Erro ao desmarcar pagamento da parcela');
     }
   };
 
@@ -247,6 +259,21 @@ export const InstallmentsPage: React.FC<InstallmentsPageProps> = ({
                                     >
                                       <CheckCircle2 className="w-3 h-3" />
                                       Pagar / Adiantar
+                                    </button>
+                                  )}
+                                  {isPaid && (
+                                    <button
+                                      onClick={() =>
+                                        handleUnpayInstallment(
+                                          inst.id,
+                                          `${inst.installmentNumber}/${inst.totalInstallments} de "${purchase.description}"`,
+                                          inst.paymentDate
+                                        )
+                                      }
+                                      className="px-2 py-1 text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 rounded border border-amber-500/30 transition-all inline-flex items-center gap-1"
+                                    >
+                                      <XCircle className="w-3 h-3" />
+                                      Desmarcar
                                     </button>
                                   )}
                                 </td>

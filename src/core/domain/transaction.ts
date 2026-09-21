@@ -52,7 +52,16 @@ export interface UpdateTransactionDTO {
   notes?: string | null;
 }
 
+/** Origem do Lançamento: avulso (manual/extrato), gerado por regra fixa ou por parcela. */
+export type TransactionOrigin = 'MANUAL' | 'RECURRING' | 'INSTALLMENT';
+
+export type TransactionSort = 'DATE_DESC' | 'DATE_ASC' | 'AMOUNT_DESC' | 'AMOUNT_ASC' | 'DESCRIPTION';
+
 export interface TransactionFilters {
+  minAmountCents?: number;
+  maxAmountCents?: number;
+  origin?: TransactionOrigin;
+  sortBy?: TransactionSort;
   startDate?: string;
   endDate?: string;
   type?: TransactionType;

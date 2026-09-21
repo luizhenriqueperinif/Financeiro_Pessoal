@@ -8,6 +8,7 @@ import {
   ListInstallmentPurchasesUseCase,
   PayInstallmentUseCase,
   UpdateInstallmentUseCase,
+  UnpayInstallmentUseCase,
   DeleteInstallmentPurchaseUseCase,
 } from '../../src/core/use-cases/installments/index.js';
 
@@ -141,5 +142,31 @@ describe('Installment Purchases Use Cases (Compras Parceladas)', () => {
     const adiada = updateInstallment.execute(parcela1.id, { dueDate: '2026-09-20' });
 
     expect(adiada.status).toBe('PENDING');
+  });
+
+  it('desfaz o pagamento de uma parcela e do lançamento vinculado', () => {
+    const outras = categoryRepo.findByName('Outras Despesas')!;
+    const unpayInstallment = new UnpayInstallmentUseCase(installmentRepo);
+    const compra = createPurchase.execute({
+      description: 'Sofá',
+      totalAmountCents: 300000,
+      totalInstallments: 3,
+      firstDueDate: '2026-08-20',
+      categoryId: outras.id,
+      paymentMethod: 'CREDIT',
+    });
+    const [vencida, futura] = compra.installments!;
+    payInstallment.execute(vencida.id, '2026-08-20');
+    payInstallment.execute(futura.id, '2026-09-01');
+
+    const desfeitaVencida = unpayInstallment.execute(vencida.id);
+    const desfeitaFutura = unpayInstallment.execute(futura.id);
+
+    expect(desfeitaVencida.status).toBe('OVERDUE');
+    expect(desfeitaVencida.paymentDate).toBeNull();
+    expect(desfeitaFutura.status).toBe('PENDING');
+    const lancamento = transactionRepo.findById(futura.transactionId!)!;
+    expect(lancamento.status).toBe('PENDING');
+    expect(lancamento.paymentDate).toBeNull();
   });
 });
