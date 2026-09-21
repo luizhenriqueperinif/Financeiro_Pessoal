@@ -124,9 +124,9 @@ function initializeDatabase() {
   const calculateForecast = new CalculateForecastUseCase(transactionRepo, recurringRepo);
   const investmentRepo = new SqliteInvestmentRepository(rawDb);
   const listInvestments = new ListInvestmentsUseCase(investmentRepo);
-  const createInvestment = new CreateInvestmentUseCase(investmentRepo);
-  const updateInvestment = new UpdateInvestmentUseCase(investmentRepo);
-  const deleteInvestment = new DeleteInvestmentUseCase(investmentRepo);
+  const createInvestment = new CreateInvestmentUseCase(investmentRepo, recurringRepo, categoryRepo);
+  const updateInvestment = new UpdateInvestmentUseCase(investmentRepo, recurringRepo, categoryRepo);
+  const deleteInvestment = new DeleteInvestmentUseCase(investmentRepo, recurringRepo);
   const getReserveSummary = new GetReserveSummaryUseCase(investmentRepo);
   const backupService = new BackupService(rawDb);
   const statementParser = new StatementParserService();

@@ -13,11 +13,13 @@ import { formatMoney, formatDate } from '../utils/formatters.js';
 import { api } from '../services/api.js';
 
 interface RecurringPageProps {
+  refreshKey?: number;
   onOpenNewRecurring: () => void;
 }
 
 export const RecurringPage: React.FC<RecurringPageProps> = ({
   onOpenNewRecurring,
+  refreshKey,
 }) => {
   const [rules, setRules] = useState<RecurringRule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,7 +38,7 @@ export const RecurringPage: React.FC<RecurringPageProps> = ({
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [refreshKey]);
 
   const handleToggleActive = async (rule: RecurringRule) => {
     try {
@@ -48,7 +50,7 @@ export const RecurringPage: React.FC<RecurringPageProps> = ({
   };
 
   const handleDelete = async (id: string, description: string) => {
-    if (confirm(`Deseja excluir a despesa fixa "${description}"?`)) {
+    if (confirm(`Deseja excluir a regra fixa "${description}"?`)) {
       try {
         await api.deleteRecurringRule(id);
         loadData();
@@ -58,57 +60,21 @@ export const RecurringPage: React.FC<RecurringPageProps> = ({
     }
   };
 
-  const totalMonthlyActiveCents = rules
-    .filter((r) => r.isActive && r.type === 'EXPENSE')
-    .reduce((acc, cur) => acc + cur.amountCents, 0);
+  // Valor médio por mês: semanal ≈ 52/12 ocorrências, anual = 1/12
+  const monthlyEquivalent = (r: RecurringRule) =>
+    r.frequency === 'WEEKLY' ? Math.round((r.amountCents * 52) / 12) : r.frequency === 'YEARLY' ? Math.round(r.amountCents / 12) : r.amountCents;
+  const byDueDay = (a: RecurringRule, b: RecurringRule) => a.dueDay - b.dueDay || a.description.localeCompare(b.description);
+  const incomeRules = rules.filter((r) => r.type === 'INCOME').sort(byDueDay);
+  const expenseRules = rules.filter((r) => r.type === 'EXPENSE').sort(byDueDay);
+  const activeMonthly = (list: RecurringRule[]) =>
+    list.filter((r) => r.isActive).reduce((acc, r) => acc + monthlyEquivalent(r), 0);
+  const fixedIncomeCents = activeMonthly(incomeRules);
+  const fixedExpenseCents = activeMonthly(expenseRules);
+  const fixedBalanceCents = fixedIncomeCents - fixedExpenseCents;
 
-  return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto animate-in fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Repeat className="w-6 h-6 text-amber-500" />
-            Despesas Fixas e Recorrentes
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Contas que se repetem todo mês (Aluguel, Internet, Streaming, Condomínio)
-          </p>
-        </div>
-
-        <button
-          onClick={onOpenNewRecurring}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/30 transition-all active:scale-95"
-        >
-          <Plus className="w-4 h-4" />
-          Nova Despesa Fixa
-        </button>
-      </div>
-
-      {/* Card de Impacto Orçamentário */}
-      <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center justify-between shadow-sm">
-        <div>
-          <span className="text-xs text-slate-500 dark:text-slate-400 block font-semibold uppercase tracking-wider">
-            Comprometimento Fixo Mensal Ativo
-          </span>
-          <span className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1 block">
-            {formatMoney(totalMonthlyActiveCents)}
-          </span>
-          <span className="text-[11px] text-slate-400">
-            Lançadas automaticamente no seu financeiro todo mês
-          </span>
-        </div>
-        <div className="text-right">
-          <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-            {rules.filter((r) => r.isActive).length} regras ativas
-          </span>
-        </div>
-      </div>
-
-      {/* Grid de Regras Cadastradas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {rules.map((rule) => {
-          const isExpense = rule.type === 'EXPENSE';
-          return (
+  const renderRule = (rule: RecurringRule) => {
+    const isExpense = rule.type === 'EXPENSE';
+    return (
             <div
               key={rule.id}
               className={`bg-white dark:bg-slate-900 rounded-2xl border p-5 transition-all shadow-sm flex flex-col justify-between ${
@@ -197,9 +163,81 @@ export const RecurringPage: React.FC<RecurringPageProps> = ({
                 </button>
               </div>
             </div>
-          );
-        })}
+    );
+  };
+
+  return (
+    <div className="p-6 space-y-6 max-w-7xl mx-auto animate-in fade-in">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <Repeat className="w-6 h-6 text-amber-500" />
+            Receitas e Despesas Fixas
+          </h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            O que entra e sai todo mês (salários, prestação, internet, contas de consumo)
+          </p>
+        </div>
+
+        <button
+          onClick={onOpenNewRecurring}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/30 transition-all active:scale-95"
+        >
+          <Plus className="w-4 h-4" />
+          Nova Regra Fixa
+        </button>
       </div>
+
+      {/* Resumo mensal das regras ativas */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+          <span className="text-xs text-slate-500 block font-medium">Receitas fixas por mês</span>
+          <span className="text-xl font-black text-emerald-600 dark:text-emerald-400">{formatMoney(fixedIncomeCents)}</span>
+        </div>
+        <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+          <span className="text-xs text-slate-500 block font-medium">Despesas fixas por mês</span>
+          <span className="text-xl font-black text-rose-600 dark:text-rose-400">{formatMoney(fixedExpenseCents)}</span>
+        </div>
+        <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+          <span className="text-xs text-slate-500 block font-medium">Sobra das fixas</span>
+          <span className={`text-xl font-black ${fixedBalanceCents >= 0 ? 'text-slate-900 dark:text-white' : 'text-rose-600'}`}>
+            {formatMoney(fixedBalanceCents)}
+          </span>
+          <span className="text-[10px] text-slate-400 block">antes de cartões e gastos variáveis</span>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="p-8 text-center text-xs text-slate-400">Carregando regras fixas...</div>
+      ) : (
+        <>
+          <RuleSection title="Receitas Fixas" color="text-emerald-600 dark:text-emerald-400" rules={incomeRules} emptyText="Nenhuma receita fixa cadastrada (ex.: salário)." render={renderRule} />
+          <RuleSection title="Despesas Fixas" color="text-rose-600 dark:text-rose-400" rules={expenseRules} emptyText="Nenhuma despesa fixa cadastrada." render={renderRule} />
+        </>
+      )}
     </div>
   );
 };
+
+interface RuleSectionProps {
+  title: string;
+  color: string;
+  rules: RecurringRule[];
+  emptyText: string;
+  render: (rule: RecurringRule) => React.ReactNode;
+}
+
+const RuleSection: React.FC<RuleSectionProps> = ({ title, color, rules, emptyText, render }) => (
+  <section className="space-y-3">
+    <h3 className={`text-sm font-bold uppercase tracking-wider ${color}`}>
+      {title} <span className="text-slate-400 font-semibold">({rules.length})</span>
+    </h3>
+    {rules.length === 0 ? (
+      <div className="p-6 text-center text-xs text-slate-400 bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
+        {emptyText}
+      </div>
+    ) : (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{rules.map(render)}</div>
+    )}
+  </section>
+);

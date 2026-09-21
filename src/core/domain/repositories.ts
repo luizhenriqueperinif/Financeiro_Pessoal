@@ -78,5 +78,6 @@ export interface IInvestmentRepository {
   findById(id: string): Investment | null;
   list(): Investment[];
   update(id: string, data: UpdateInvestmentDTO): Investment | null;
+  setRecurringRule(id: string, ruleId: string | null): void;
   delete(id: string): boolean;
 }

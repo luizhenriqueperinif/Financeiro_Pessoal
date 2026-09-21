@@ -104,11 +104,13 @@ export class BackupService {
       if (Array.isArray(data.investments)) {
         this.db.prepare('DELETE FROM investments').run();
         const insertInv = this.db.prepare(`
-          INSERT INTO investments (id, name, balance_cents, monthly_yield_cents, monthly_commitment_cents, notes, created_at, updated_at)
-          VALUES (@id, @name, @balance_cents, @monthly_yield_cents, @monthly_commitment_cents, @notes, @created_at, @updated_at)
+          INSERT INTO investments (id, name, balance_cents, monthly_yield_cents, monthly_commitment_cents,
+            generates_income, income_due_day, recurring_rule_id, notes, created_at, updated_at)
+          VALUES (@id, @name, @balance_cents, @monthly_yield_cents, @monthly_commitment_cents,
+            @generates_income, @income_due_day, @recurring_rule_id, @notes, @created_at, @updated_at)
         `);
         for (const inv of data.investments) {
-          insertInv.run(inv);
+          insertInv.run({ generates_income: 0, income_due_day: 15, recurring_rule_id: null, ...inv });
         }
       }
     });

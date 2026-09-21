@@ -14,11 +14,13 @@ import { formatMoney, formatDate } from '../utils/formatters.js';
 import { api } from '../services/api.js';
 
 interface InstallmentsPageProps {
+  refreshKey?: number;
   onOpenNewExpense: () => void;
 }
 
 export const InstallmentsPage: React.FC<InstallmentsPageProps> = ({
   onOpenNewExpense,
+  refreshKey,
 }) => {
   const [purchases, setPurchases] = useState<InstallmentPurchase[]>([]);
   const [expandedPurchaseId, setExpandedPurchaseId] = useState<string | null>(null);
@@ -44,7 +46,7 @@ export const InstallmentsPage: React.FC<InstallmentsPageProps> = ({
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [refreshKey]);
 
   const handlePayInstallment = async (installmentId: string) => {
     try {

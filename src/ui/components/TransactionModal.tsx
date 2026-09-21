@@ -9,7 +9,8 @@ import { DateUtils } from '../../core/utils/date-utils.js';
 interface TransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (message?: string) => void;
+  /** created: lançamento avulso criado, para a lista destacar e mostrar o mês dele. */
+  onSuccess: (message?: string, created?: { id: string; date: string; type: TransactionType }) => void;
   initialType: TransactionType;
   categories: Category[];
   defaultDate?: string;
@@ -117,10 +118,10 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
         const installmentValCents = Math.round(amountCents / totalInstallments);
         const feedbackMsg = `Compra parcelada com sucesso! ${totalInstallments} parcelas de ${Money.format(installmentValCents)} foram geradas.`;
-        onSuccess(feedbackMsg);
+        onSuccess(feedbackMsg, { id: '', date, type: 'EXPENSE' });
       } else {
         // Transação avulsa comum
-        await api.createTransaction({
+        const created = await api.createTransaction({
           description: description.trim(),
           amountCents,
           type,
@@ -132,7 +133,11 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
           notes: notes.trim() || null,
         });
 
-        onSuccess(`${type === 'INCOME' ? 'Receita' : 'Despesa'} cadastrada com sucesso!`);
+        onSuccess(`${type === 'INCOME' ? 'Receita' : 'Despesa'} cadastrada com sucesso!`, {
+          id: created.id,
+          date: created.date,
+          type,
+        });
       }
 
       onClose();

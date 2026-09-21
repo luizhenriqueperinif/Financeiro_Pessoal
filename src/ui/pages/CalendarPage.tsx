@@ -6,6 +6,7 @@ import { api } from '../services/api.js';
 
 interface CalendarPageProps {
   selectedYearMonth: string;
+  refreshKey?: number;
   onOpenNewExpenseForDate: (date: string) => void;
 }
 
@@ -13,6 +14,7 @@ const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
 export const CalendarPage: React.FC<CalendarPageProps> = ({
   selectedYearMonth,
+  refreshKey,
   onOpenNewExpenseForDate,
 }) => {
   const [data, setData] = useState<CalendarMonthData | null>(null);
@@ -38,7 +40,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
 
   useEffect(() => {
     loadData();
-  }, [selectedYearMonth]);
+  }, [selectedYearMonth, refreshKey]);
 
   if (loading || !data) {
     return (
