@@ -147,7 +147,7 @@ describe('AI Advisor Prompt Builder (Construção do Contexto Financeiro para IA
         reserve: {
           count: 1, totalBalanceCents: 2000000, monthlyYieldCents: 60000, monthlyNetYieldCents: 14000,
           investments: [{ id: 'i', name: 'CDB', balanceCents: 2000000, monthlyYieldCents: 60000, monthlyCommitmentCents: 46000,
-            notes: 'Repasse ao meu pai', createdAt: '', updatedAt: '' }],
+            generatesIncome: true, incomeDueDay: 15, notes: 'Repasse ao meu pai', createdAt: '', updatedAt: '' }],
         },
       });
       expect(prompt).toMatch(/RESERVA/);

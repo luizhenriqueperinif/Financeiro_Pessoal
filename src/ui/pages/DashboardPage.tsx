@@ -29,6 +29,7 @@ import { FinancialAlertsBanner } from '../components/FinancialAlertsBanner.js';
 
 interface DashboardPageProps {
   selectedYearMonth: string;
+  refreshKey?: number;
   onNavigateToIncomes: () => void;
   onNavigateToExpenses: () => void;
   onNavigateToInstallments: () => void;
@@ -37,6 +38,7 @@ interface DashboardPageProps {
 
 export const DashboardPage: React.FC<DashboardPageProps> = ({
   selectedYearMonth,
+  refreshKey,
   onNavigateToIncomes,
   onNavigateToExpenses,
   onNavigateToInstallments,
@@ -68,7 +70,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
   useEffect(() => {
     loadData();
-  }, [selectedYearMonth]);
+  }, [selectedYearMonth, refreshKey]);
 
   if (loading || !metrics) {
     return (

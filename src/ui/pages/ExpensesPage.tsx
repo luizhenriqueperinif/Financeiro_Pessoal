@@ -24,12 +24,17 @@ import {
 
 interface ExpensesPageProps {
   selectedYearMonth: string;
+  refreshKey?: number;
+  /** Lançamento recém-criado, destacado por alguns segundos. */
+  highlightId?: string | null;
   onOpenNewExpense: () => void;
   categories: Category[];
 }
 
 export const ExpensesPage: React.FC<ExpensesPageProps> = ({
   selectedYearMonth,
+  refreshKey,
+  highlightId,
   onOpenNewExpense,
   categories,
 }) => {
@@ -53,7 +58,7 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
 
   useEffect(() => {
     loadData();
-  }, [selectedYearMonth, filters]);
+  }, [selectedYearMonth, filters, refreshKey]);
 
   const handleMarkPaid = async (id: string) => {
     try {
@@ -202,7 +207,12 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
                   const isPaid = item.status === 'PAID';
                   const isOverdue = item.status === 'OVERDUE';
                   return (
-                    <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                    <tr
+                      key={item.id}
+                      className={`hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors duration-700 ${
+                        item.id === highlightId ? 'bg-emerald-500/15 dark:bg-emerald-500/10' : ''
+                      }`}
+                    >
                       <td className="py-3 px-4 text-slate-500 dark:text-slate-400 whitespace-nowrap font-medium">
                         {formatDate(item.date)}
                       </td>

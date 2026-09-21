@@ -41,6 +41,18 @@ export class AppDatabase {
         );
       })();
     }
+
+    // Vínculo do rendimento do investimento com uma Receita Fixa
+    this.addColumnIfMissing('investments', 'generates_income', 'INTEGER NOT NULL DEFAULT 0');
+    this.addColumnIfMissing('investments', 'income_due_day', 'INTEGER NOT NULL DEFAULT 15');
+    this.addColumnIfMissing('investments', 'recurring_rule_id', 'TEXT REFERENCES recurring_rules(id) ON DELETE SET NULL');
+  }
+
+  private addColumnIfMissing(table: string, column: string, definition: string): void {
+    const columns = this.db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+    if (!columns.some((c) => c.name === column)) {
+      this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    }
   }
 
   private seedDefaultCategories(): void {

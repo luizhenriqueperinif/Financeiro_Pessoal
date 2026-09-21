@@ -10,6 +10,8 @@ import {
 import { Transaction } from '../../core/domain/transaction.js';
 import { Category } from '../../core/domain/category.js';
 import { formatMoney, formatDate } from '../utils/formatters.js';
+import { Money } from '../../core/value-objects/money.js';
+import { DateUtils } from '../../core/utils/date-utils.js';
 import { api } from '../services/api.js';
 import {
   TransactionFiltersBar,
@@ -20,12 +22,17 @@ import {
 
 interface IncomesPageProps {
   selectedYearMonth: string;
+  refreshKey?: number;
+  /** Lançamento recém-criado, destacado por alguns segundos. */
+  highlightId?: string | null;
   onOpenNewIncome: () => void;
   categories: Category[];
 }
 
 export const IncomesPage: React.FC<IncomesPageProps> = ({
   selectedYearMonth,
+  refreshKey,
+  highlightId,
   onOpenNewIncome,
   categories,
 }) => {
@@ -47,14 +54,31 @@ export const IncomesPage: React.FC<IncomesPageProps> = ({
 
   useEffect(() => {
     loadData();
-  }, [selectedYearMonth, filters]);
+  }, [selectedYearMonth, filters, refreshKey]);
 
-  const handleMarkReceived = async (id: string) => {
+  // Confirmação do recebimento: permite ajustar o valor que caiu de fato (ex.: rendimento variável)
+  const [receiving, setReceiving] = useState<{ item: Transaction; amount: string; date: string; error?: string } | null>(null);
+
+  const openReceive = (item: Transaction) =>
+    setReceiving({
+      item,
+      amount: Money.format(item.amountCents).replace(/^R\$\s?/, ''),
+      date: DateUtils.today(),
+    });
+
+  const confirmReceive = async () => {
+    if (!receiving) return;
     try {
-      await api.markTransactionPaid(id);
+      const amountCents = Money.fromReal(receiving.amount);
+      if (amountCents <= 0) throw new Error('Informe um valor maior que zero');
+      if (amountCents !== receiving.item.amountCents) {
+        await api.updateTransaction(receiving.item.id, { amountCents });
+      }
+      await api.markTransactionPaid(receiving.item.id, receiving.date);
+      setReceiving(null);
       loadData();
-    } catch (err) {
-      alert('Erro ao marcar receita como recebida');
+    } catch (err: any) {
+      setReceiving({ ...receiving, error: err.message || 'Erro ao marcar receita como recebida' });
     }
   };
 
@@ -87,6 +111,47 @@ export const IncomesPage: React.FC<IncomesPageProps> = ({
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto animate-in fade-in">
+      {receiving && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Confirmar recebimento</h3>
+              <p className="text-xs text-slate-500">{receiving.item.description} — previsto {formatMoney(receiving.item.amountCents)}</p>
+            </div>
+            {receiving.error && <div className="text-xs text-rose-600">{receiving.error}</div>}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">Valor recebido (R$)</label>
+                <input
+                  autoFocus
+                  value={receiving.amount}
+                  onChange={(e) => setReceiving({ ...receiving, amount: e.target.value })}
+                  onKeyDown={(e) => e.key === 'Enter' && confirmReceive()}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">Recebido em</label>
+                <input
+                  type="date"
+                  value={receiving.date}
+                  onChange={(e) => setReceiving({ ...receiving, date: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setReceiving(null)} className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
+                Cancelar
+              </button>
+              <button onClick={confirmReceive} className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold">
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Cabeçalho */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -169,7 +234,12 @@ export const IncomesPage: React.FC<IncomesPageProps> = ({
                   const isOverdue = item.status === 'OVERDUE';
                   const isCancelled = item.status === 'CANCELLED';
                   return (
-                    <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                    <tr
+                      key={item.id}
+                      className={`hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors duration-700 ${
+                        item.id === highlightId ? 'bg-emerald-500/15 dark:bg-emerald-500/10' : ''
+                      }`}
+                    >
                       <td className="py-3 px-4 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                         {formatDate(item.date)}
                       </td>
@@ -229,7 +299,7 @@ export const IncomesPage: React.FC<IncomesPageProps> = ({
                           )}
                           {!isReceived && !isCancelled && (
                             <button
-                              onClick={() => handleMarkReceived(item.id)}
+                              onClick={() => openReceive(item)}
                               className="p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg transition-colors"
                               title="Marcar como recebida"
                             >

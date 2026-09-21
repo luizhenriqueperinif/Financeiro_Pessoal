@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { PiggyBank, Plus, Pencil, Trash2, X } from 'lucide-react';
+import { PiggyBank, Plus, Pencil, Trash2, X, Repeat } from 'lucide-react';
 import { Investment, ReserveSummary } from '../../core/domain/investment.js';
+import { RecurringRule } from '../../core/domain/recurring-rule.js';
 import { Money } from '../../core/value-objects/money.js';
 import { api } from '../services/api.js';
 import { formatMoney } from '../utils/formatters.js';
@@ -12,9 +13,22 @@ interface FormState {
   yield: string;
   commitment: string;
   notes: string;
+  generatesIncome: boolean;
+  incomeDueDay: string;
+  /** '' = criar uma receita fixa nova; senão, id da receita fixa existente a vincular. */
+  linkRuleId: string;
 }
 
-const EMPTY_FORM: FormState = { name: '', balance: '', yield: '', commitment: '', notes: '' };
+const EMPTY_FORM: FormState = {
+  name: '',
+  balance: '',
+  yield: '',
+  commitment: '',
+  notes: '',
+  generatesIncome: true,
+  incomeDueDay: '15',
+  linkRuleId: '',
+};
 const toInput = (cents: number) => (cents ? Money.format(cents).replace(/^R\$\s?/, '') : '');
 const parseCents = (raw: string) => (raw.trim() ? Money.fromReal(raw) : 0);
 
@@ -26,8 +40,28 @@ export const ReservePage: React.FC = () => {
   const [summary, setSummary] = useState<ReserveSummary | null>(null);
   const [form, setForm] = useState<FormState | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [incomeRules, setIncomeRules] = useState<RecurringRule[]>([]);
 
-  const load = async () => setSummary(await api.getReserveSummary());
+  const load = async () => {
+    const [reserve, rules] = await Promise.all([api.getReserveSummary(), api.listRecurringRules()]);
+    setSummary(reserve);
+    setIncomeRules(rules.filter((r) => r.type === 'INCOME'));
+  };
+
+  const linkedRuleIds = new Set((summary?.investments ?? []).map((i) => i.recurringRuleId).filter(Boolean));
+  const ruleName = (id?: string | null) => incomeRules.find((r) => r.id === id)?.description;
+
+  /** Novo investimento: sugere uma receita fixa de rendimento já existente e ainda não vinculada. */
+  const openNew = () => {
+    const suggestion = incomeRules.find(
+      (r) => !linkedRuleIds.has(r.id) && /rend|invest|juros/i.test(`${r.description} ${r.categoryName ?? ''}`)
+    );
+    setForm({
+      ...EMPTY_FORM,
+      linkRuleId: suggestion?.id ?? '',
+      incomeDueDay: String(suggestion?.dueDay ?? 15),
+    });
+  };
 
   useEffect(() => {
     load();
@@ -41,6 +75,9 @@ export const ReservePage: React.FC = () => {
       yield: toInput(inv.monthlyYieldCents),
       commitment: toInput(inv.monthlyCommitmentCents),
       notes: inv.notes ?? '',
+      generatesIncome: inv.generatesIncome,
+      incomeDueDay: String(inv.incomeDueDay),
+      linkRuleId: inv.recurringRuleId ?? '',
     });
 
   const save = async () => {
@@ -53,6 +90,9 @@ export const ReservePage: React.FC = () => {
         monthlyYieldCents: parseCents(form.yield),
         monthlyCommitmentCents: parseCents(form.commitment),
         notes: form.notes || null,
+        generatesIncome: form.generatesIncome,
+        incomeDueDay: Number(form.incomeDueDay) || 15,
+        linkRecurringRuleId: form.generatesIncome && form.linkRuleId ? form.linkRuleId : null,
       };
       if (form.id) await api.updateInvestment(form.id, dto);
       else await api.createInvestment(dto);
@@ -84,7 +124,7 @@ export const ReservePage: React.FC = () => {
           </p>
         </div>
         <button
-          onClick={() => setForm(EMPTY_FORM)}
+          onClick={openNew}
           className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/30"
         >
           <Plus className="w-4 h-4" />
@@ -134,6 +174,61 @@ export const ReservePage: React.FC = () => {
               <label className={labelClass}>Parte do rendimento já comprometida por mês (R$)</label>
               <input className={inputClass} value={form.commitment} onChange={(e) => setForm({ ...form, commitment: e.target.value })} placeholder="Ex.: 460,00 repassados todo mês" />
             </div>
+            <div className="md:col-span-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 space-y-3">
+              <label className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.generatesIncome}
+                  onChange={(e) => setForm({ ...form, generatesIncome: e.target.checked })}
+                />
+                O rendimento cai na minha conta todo mês (lançar como Receita Fixa)
+              </label>
+              {form.generatesIncome && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className={labelClass}>Dia em que cai</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={31}
+                      className={inputClass}
+                      value={form.incomeDueDay}
+                      onChange={(e) => setForm({ ...form, incomeDueDay: e.target.value })}
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className={labelClass}>Receita fixa</label>
+                    <select
+                      className={inputClass}
+                      value={form.linkRuleId}
+                      onChange={(e) => setForm({ ...form, linkRuleId: e.target.value })}
+                    >
+                      <option value="">Criar uma nova receita fixa</option>
+                      {incomeRules
+                        .filter((r) => !linkedRuleIds.has(r.id) || r.id === form.linkRuleId)
+                        .map((r) => (
+                          <option key={r.id} value={r.id}>
+                            Usar a existente: {r.description} ({formatMoney(r.amountCents)}/mês)
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                  <p className="md:col-span-3 text-[11px] text-slate-500">
+                    Valor lançado todo mês: rendimento − parte comprometida ={' '}
+                    <strong>
+                      {(() => {
+                        try {
+                          return formatMoney(Math.max(0, parseCents(form.yield) - parseCents(form.commitment)));
+                        } catch {
+                          return '—';
+                        }
+                      })()}
+                    </strong>
+                    . Ao editar o investimento, a receita fixa é atualizada junto.
+                  </p>
+                </div>
+              )}
+            </div>
             <div className="md:col-span-2">
               <label className={labelClass}>Observações</label>
               <input className={inputClass} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Ex.: parte do rendimento vai para meu pai; resgate em 1 dia útil" />
@@ -152,7 +247,7 @@ export const ReservePage: React.FC = () => {
           <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
             <PiggyBank className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
             <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">Nenhum investimento cadastrado</p>
-            <button onClick={() => setForm(EMPTY_FORM)} className="mt-3 text-xs text-emerald-600 font-bold hover:underline">
+            <button onClick={openNew} className="mt-3 text-xs text-emerald-600 font-bold hover:underline">
               + Cadastrar minha reserva
             </button>
           </div>
@@ -166,6 +261,12 @@ export const ReservePage: React.FC = () => {
                   {inv.monthlyCommitmentCents > 0 && ` • ${formatMoney(inv.monthlyCommitmentCents)} comprometidos • sobra ${formatMoney(inv.monthlyYieldCents - inv.monthlyCommitmentCents)}`}
                 </p>
                 {inv.notes && <p className="text-[11px] text-slate-400 mt-0.5">{inv.notes}</p>}
+                {inv.generatesIncome && inv.recurringRuleId && (
+                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1 flex items-center gap-1">
+                    <Repeat className="w-3 h-3" />
+                    Lançado como Receita Fixa{ruleName(inv.recurringRuleId) ? ` "${ruleName(inv.recurringRuleId)}"` : ''} todo dia {inv.incomeDueDay}
+                  </p>
+                )}
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">{formatMoney(inv.balanceCents)}</span>

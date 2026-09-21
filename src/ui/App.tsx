@@ -41,6 +41,11 @@ export const App: React.FC = () => {
   // Feedback / Toast Banner
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Incrementada a cada cadastro feito nos modais globais para as páginas recarregarem
+  const [dataVersion, setDataVersion] = useState(0);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const bumpData = () => setDataVersion((v) => v + 1);
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => {
@@ -101,8 +106,21 @@ export const App: React.FC = () => {
     setIsTxModalOpen(true);
   };
 
-  const handleTxSuccess = (message?: string) => {
+  const handleTxSuccess = (message?: string, created?: { id: string; date: string; type: TransactionType }) => {
     loadGlobalBalance();
+    bumpData();
+    if (created) {
+      // Nas listas, leva ao mês do lançamento para que ele apareça na tela
+      const listPage = created.type === 'INCOME' ? 'incomes' : 'expenses';
+      const createdMonth = created.date.slice(0, 7);
+      if (currentPage === listPage && createdMonth !== selectedYearMonth) {
+        setSelectedYearMonth(createdMonth);
+      }
+      if (created.id) {
+        setHighlightId(created.id);
+        setTimeout(() => setHighlightId(null), 4000);
+      }
+    }
     if (message) {
       showToast(message);
     }
@@ -148,6 +166,7 @@ export const App: React.FC = () => {
           {currentPage === 'dashboard' && (
             <DashboardPage
               selectedYearMonth={selectedYearMonth}
+              refreshKey={dataVersion}
               onNavigateToIncomes={() => setCurrentPage('incomes')}
               onNavigateToExpenses={() => setCurrentPage('expenses')}
               onNavigateToInstallments={() => setCurrentPage('installments')}
@@ -158,6 +177,8 @@ export const App: React.FC = () => {
           {currentPage === 'incomes' && (
             <IncomesPage
               selectedYearMonth={selectedYearMonth}
+              refreshKey={dataVersion}
+              highlightId={highlightId}
               onOpenNewIncome={handleOpenNewIncome}
               categories={categories}
             />
@@ -166,6 +187,8 @@ export const App: React.FC = () => {
           {currentPage === 'expenses' && (
             <ExpensesPage
               selectedYearMonth={selectedYearMonth}
+              refreshKey={dataVersion}
+              highlightId={highlightId}
               onOpenNewExpense={handleOpenNewExpense}
               categories={categories}
             />
@@ -181,12 +204,14 @@ export const App: React.FC = () => {
 
           {currentPage === 'recurring' && (
             <RecurringPage
+              refreshKey={dataVersion}
               onOpenNewRecurring={() => setIsRecurringModalOpen(true)}
             />
           )}
 
           {currentPage === 'installments' && (
             <InstallmentsPage
+              refreshKey={dataVersion}
               onOpenNewExpense={handleOpenNewExpense}
             />
           )}
@@ -196,6 +221,7 @@ export const App: React.FC = () => {
           {currentPage === 'calendar' && (
             <CalendarPage
               selectedYearMonth={selectedYearMonth}
+              refreshKey={dataVersion}
               onOpenNewExpenseForDate={handleOpenNewExpenseForDate}
             />
           )}
@@ -232,7 +258,11 @@ export const App: React.FC = () => {
       <RecurringModal
         isOpen={isRecurringModalOpen}
         onClose={() => setIsRecurringModalOpen(false)}
-        onSuccess={loadGlobalBalance}
+        onSuccess={() => {
+          loadGlobalBalance();
+          bumpData();
+          showToast('Regra fixa cadastrada com sucesso!');
+        }}
         categories={categories}
       />
 

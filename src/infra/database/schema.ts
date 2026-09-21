@@ -94,6 +94,9 @@ CREATE TABLE IF NOT EXISTS investments (
   balance_cents INTEGER NOT NULL CHECK(balance_cents >= 0),
   monthly_yield_cents INTEGER NOT NULL DEFAULT 0 CHECK(monthly_yield_cents >= 0),
   monthly_commitment_cents INTEGER NOT NULL DEFAULT 0 CHECK(monthly_commitment_cents >= 0),
+  generates_income INTEGER NOT NULL DEFAULT 0,
+  income_due_day INTEGER NOT NULL DEFAULT 15,
+  recurring_rule_id TEXT REFERENCES recurring_rules(id) ON DELETE SET NULL,
   notes TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
