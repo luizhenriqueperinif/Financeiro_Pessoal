@@ -15,6 +15,7 @@ import {
   Server,
   Cpu,
   RefreshCw,
+  Zap,
 } from 'lucide-react';
 import { api } from '../services/api.js';
 import {
@@ -194,7 +195,7 @@ export const SettingsPage: React.FC = () => {
                 Conselheiro IA (Tecnologia Gratuita)
               </h3>
               <p className="text-xs text-slate-400">
-                Ative o consultor financeiro com IA gratuita pelo Google Gemini ou modelo local via Ollama
+                Ative o consultor financeiro com IA gratuita pelo Groq, Google Gemini ou modelo local via Ollama
               </p>
             </div>
           </div>
@@ -205,10 +206,36 @@ export const SettingsPage: React.FC = () => {
           <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
             Provedor de Inteligência Artificial:
           </label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <button
               type="button"
-              onClick={() => setAiConfig({ ...aiConfig, provider: 'gemini', model: 'gemini-3.6-flash' })}
+              onClick={() =>
+                aiConfig.provider !== 'groq' &&
+                setAiConfig({ ...aiConfig, provider: 'groq', model: 'openai/gpt-oss-120b', apiKey: '' })
+              }
+              className={`p-3.5 rounded-xl border text-left flex items-start gap-3 transition-all cursor-pointer ${
+                aiConfig.provider === 'groq'
+                  ? 'border-orange-500 bg-orange-50/50 dark:bg-orange-950/20 ring-1 ring-orange-500'
+                  : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+              }`}
+            >
+              <Zap className="w-5 h-5 text-orange-500 shrink-0 mt-0.5" />
+              <div>
+                <span className="text-xs font-bold text-slate-900 dark:text-white block">
+                  Groq (Recomendado)
+                </span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                  Gratuito e sem cartão de crédito. Respostas em 1–2 segundos com modelos grandes.
+                </span>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                aiConfig.provider !== 'gemini' &&
+                setAiConfig({ ...aiConfig, provider: 'gemini', model: 'gemini-3.6-flash', apiKey: '' })
+              }
               className={`p-3.5 rounded-xl border text-left flex items-start gap-3 transition-all cursor-pointer ${
                 aiConfig.provider === 'gemini'
                   ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/20 ring-1 ring-indigo-500'
@@ -229,8 +256,10 @@ export const SettingsPage: React.FC = () => {
             <button
               type="button"
               onClick={() =>
+                aiConfig.provider !== 'ollama' &&
                 setAiConfig({
                   ...aiConfig,
+                  apiKey: '',
                   provider: 'ollama',
                   model: 'llama3.2',
                   customEndpoint: 'http://localhost:11434/v1',
@@ -254,6 +283,63 @@ export const SettingsPage: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {/* Campos para Groq */}
+        {aiConfig.provider === 'groq' && (
+          <div className="space-y-4 pt-1">
+            <div>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                Chave de API do Groq (API Key)
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                  <Key className="w-4 h-4" />
+                </div>
+                <input
+                  type={showApiKey ? 'text' : 'password'}
+                  value={aiConfig.apiKey || ''}
+                  onChange={(e) => setAiConfig({ ...aiConfig, apiKey: e.target.value })}
+                  placeholder="gsk_..."
+                  className="w-full pl-9 pr-10 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-orange-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowApiKey(!showApiKey)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-200"
+                >
+                  {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                <span>Como obter:</span>
+                <a
+                  href="https://console.groq.com/keys"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-orange-500 hover:underline flex items-center gap-1 font-semibold"
+                >
+                  console.groq.com (Gratuito) <ExternalLink className="w-3 h-3" />
+                </a>
+                <span>— Clique em "Create API Key" e cole aqui.</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                Modelo do Groq
+              </label>
+              <select
+                value={aiConfig.model}
+                onChange={(e) => setAiConfig({ ...aiConfig, model: e.target.value })}
+                className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
+              >
+                <option value="openai/gpt-oss-120b">GPT-OSS 120B (Recomendado — melhores análises)</option>
+                <option value="qwen/qwen3.8-27b">Qwen 3.8 27B (Alternativa equilibrada)</option>
+                <option value="openai/gpt-oss-20b">GPT-OSS 20B (Mais leve e rápido)</option>
+              </select>
+            </div>
+          </div>
+        )}
 
         {/* Campos para Gemini */}
         {aiConfig.provider === 'gemini' && (

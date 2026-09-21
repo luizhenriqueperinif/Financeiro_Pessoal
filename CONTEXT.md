@@ -58,6 +58,10 @@ _Avoid_: Tipo de lançamento, fonte
 Operação de compra cujo montante total é fracionado em múltiplas obrigações periódicas vinculadas.
 _Avoid_: Financiamento, carnê, compra a prazo
 
+**Cartão**:
+Cartão de crédito em que uma Compra Parcelada foi feita. Várias compras podem estar no mesmo Cartão; a soma das parcelas de um Cartão que vencem num mês forma a fatura daquele mês.
+_Avoid_: Conta do cartão, bandeira
+
 **Parcela**:
 Fração individualizada de uma compra parcelada, com valor próprio, número de ordem e data de vencimento específica.
 _Avoid_: Mensalidade, prestação

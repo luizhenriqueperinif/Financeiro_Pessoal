@@ -25,6 +25,8 @@ export interface InstallmentPurchase {
   categoryColor?: string;
   categoryIcon?: string;
   paymentMethod: PaymentMethod;
+  /** Cartão de crédito em que a compra foi feita (ex.: "Nu CPF"). */
+  cardName?: string | null;
   notes?: string | null;
   installments?: Installment[];
   createdAt: string;
@@ -38,7 +40,23 @@ export interface CreateInstallmentPurchaseDTO {
   firstDueDate: string;
   categoryId: string;
   paymentMethod?: PaymentMethod;
+  cardName?: string | null;
   notes?: string | null;
+}
+
+export interface CardMonthTotal {
+  yearMonth: string; // YYYY-MM
+  amountCents: number;
+  remainingCents: number;
+}
+
+/** Soma das parcelas de todas as compras feitas num mesmo cartão. */
+export interface CardSummary {
+  cardName: string;
+  purchaseCount: number;
+  totalCents: number;
+  remainingCents: number;
+  months: CardMonthTotal[];
 }
 
 export interface UpdateInstallmentDTO {

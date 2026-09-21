@@ -70,11 +70,12 @@ export class BackupService {
 
       // Restaura compras parceladas
       const insertPur = this.db.prepare(`
-        INSERT INTO installment_purchases (id, description, total_amount_cents, total_installments, first_due_date, category_id, payment_method, notes, created_at, updated_at)
-        VALUES (@id, @description, @total_amount_cents, @total_installments, @first_due_date, @category_id, @payment_method, @notes, @created_at, @updated_at)
+        INSERT INTO installment_purchases (id, description, total_amount_cents, total_installments, first_due_date, category_id, payment_method, card_name, notes, created_at, updated_at)
+        VALUES (@id, @description, @total_amount_cents, @total_installments, @first_due_date, @category_id, @payment_method, @card_name, @notes, @created_at, @updated_at)
       `);
       for (const pur of data.installmentPurchases || []) {
-        insertPur.run(pur);
+        // Backups antigos não têm card_name
+        insertPur.run({ card_name: null, ...pur });
       }
 
       // Restaura parcelas

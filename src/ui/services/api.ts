@@ -2,7 +2,8 @@ import { IElectronAPI } from '../types/electron-api.js';
 import { Category, CreateCategoryDTO, UpdateCategoryDTO } from '../../core/domain/category.js';
 import { Transaction, CreateTransactionDTO, UpdateTransactionDTO, TransactionFilters } from '../../core/domain/transaction.js';
 import { RecurringRule, CreateRecurringRuleDTO, UpdateRecurringRuleDTO } from '../../core/domain/recurring-rule.js';
-import { InstallmentPurchase, Installment, CreateInstallmentPurchaseDTO, UpdateInstallmentDTO } from '../../core/domain/installment-purchase.js';
+import { InstallmentPurchase, Installment, CreateInstallmentPurchaseDTO, UpdateInstallmentDTO, CardSummary } from '../../core/domain/installment-purchase.js';
+import { GetCardSummariesUseCase } from '../../core/use-cases/installments/installment-operations.js';
 import { DashboardMetrics } from '../../core/domain/dashboard.js';
 import { CalendarMonthData } from '../../core/domain/calendar.js';
 import { FinancialReportsResult } from '../../core/domain/reports.js';
@@ -363,6 +364,14 @@ class ApiClient implements IElectronAPI {
     return purchases;
   }
 
+  async getCardSummaries(): Promise<CardSummary[]> {
+    if (this.hasElectron) return window.api!.getCardSummaries();
+    const purchases = await this.listInstallmentPurchases();
+    // No modo web as compras de exemplo usam o nome do cartão como descrição
+    const withCards = purchases.map((p) => ({ ...p, cardName: p.cardName ?? p.description }));
+    return new GetCardSummariesUseCase({ list: () => withCards } as any).execute();
+  }
+
   async createInstallmentPurchase(dto: CreateInstallmentPurchaseDTO): Promise<InstallmentPurchase> {
     if (this.hasElectron) return window.api!.createInstallmentPurchase(dto);
     const purchases = await this.listInstallmentPurchases();
@@ -374,6 +383,7 @@ class ApiClient implements IElectronAPI {
       firstDueDate: dto.firstDueDate,
       categoryId: dto.categoryId,
       paymentMethod: dto.paymentMethod || 'CREDIT',
+      cardName: dto.cardName,
       notes: dto.notes,
       installments: [],
       createdAt: new Date().toISOString(),

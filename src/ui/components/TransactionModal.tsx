@@ -35,6 +35,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   // Estados específicos para Compra Parcelada
   const [isInstallment, setIsInstallment] = useState(false);
   const [totalInstallments, setTotalInstallments] = useState(3);
+  const [cardName, setCardName] = useState('');
+  const [knownCards, setKnownCards] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -43,15 +45,20 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       setType(initialType);
       setDescription('');
       setAmountStr('');
-      setDate(defaultDate || new Date().toISOString().slice(0, 10));
+      setDate(defaultDate || DateUtils.today());
       setCategoryId('');
       setPaymentMethod('PIX');
       setStatus(initialType === 'INCOME' ? 'RECEIVED' : 'PAID');
       setNotes('');
       setIsInstallment(false);
       setTotalInstallments(3);
+      setCardName('');
       setError(null);
       setIsLoading(false);
+      api
+        .getCardSummaries()
+        .then((cards) => setKnownCards(cards.map((c) => c.cardName)))
+        .catch(() => setKnownCards([]));
     }
   }, [initialType, isOpen, defaultDate]);
 
@@ -104,6 +111,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
           firstDueDate: date,
           categoryId,
           paymentMethod: 'CREDIT',
+          cardName: cardName.trim() || null,
           notes: notes.trim() || null,
         });
 
@@ -336,6 +344,27 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                       </option>
                     ))}
                   </select>
+                </div>
+              )}
+
+              {isInstallment && (
+                <div className="pt-2 flex items-center justify-between gap-3">
+                  <span className="text-xs font-medium text-indigo-800 dark:text-indigo-300 shrink-0">
+                    Cartão:
+                  </span>
+                  <input
+                    type="text"
+                    list="known-cards"
+                    value={cardName}
+                    onChange={(e) => setCardName(e.target.value)}
+                    placeholder="Ex.: Nu CPF"
+                    className="w-full max-w-[220px] px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-800 text-xs font-semibold text-indigo-900 dark:text-indigo-200"
+                  />
+                  <datalist id="known-cards">
+                    {knownCards.map((c) => (
+                      <option key={c} value={c} />
+                    ))}
+                  </datalist>
                 </div>
               )}
             </div>

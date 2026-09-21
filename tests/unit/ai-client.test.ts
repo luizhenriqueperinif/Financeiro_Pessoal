@@ -6,10 +6,10 @@ import {
 } from '../../src/core/services/ai-client.js';
 
 describe('AIClient (Integração com Provedores Gratuitos de IA)', () => {
-  it('retorna configuração padrão segura apontando para Gemini Free Tier', () => {
+  it('usa o Groq com GPT-OSS 120B como configuração padrão', () => {
     const config = getDefaultAIConfig();
-    expect(config.provider).toBe('gemini');
-    expect(config.model).toContain('gemini');
+    expect(config.provider).toBe('groq');
+    expect(config.model).toBe('openai/gpt-oss-120b');
   });
 
   it('lança erro amigável se a chave de API do Gemini não estiver configurada', async () => {
@@ -277,6 +277,40 @@ describe('AIClient (Integração com Provedores Gratuitos de IA)', () => {
       expect(result.message).toContain('gemini-3.6-flash');
       expect(result.suggestedModel).toBeDefined();
       expect(result.suggestedModel).not.toBe('gemini-3.6-flash');
+    });
+  });
+
+  describe('provedor Groq', () => {
+    const groqConfig: AIConfig = { provider: 'groq', apiKey: 'gsk_teste', model: 'openai/gpt-oss-120b' };
+
+    it('envia a pergunta ao endpoint do Groq com a chave no header Authorization', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ choices: [{ message: { content: 'Guarde 20% da renda.' } }] }),
+      });
+
+      const reply = await generateAdvisorAdvice(groqConfig, 'Como economizar?', mockFetch as any);
+
+      expect(reply).toBe('Guarde 20% da renda.');
+      const [url, init] = mockFetch.mock.calls[0];
+      expect(url).toBe('https://api.groq.com/openai/v1/chat/completions');
+      expect(init.headers.Authorization).toBe('Bearer gsk_teste');
+      expect(JSON.parse(init.body).model).toBe('openai/gpt-oss-120b');
+    });
+
+    it('pede a chave do Groq quando ela não foi configurada', async () => {
+      await expect(generateAdvisorAdvice({ ...groqConfig, apiKey: '' }, 'Oi')).rejects.toThrow(/console\.groq\.com/);
+    });
+
+    it('explica o limite gratuito quando o Groq responde 429', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 429,
+        statusText: 'Too Many Requests',
+        json: async () => ({ error: { message: 'Rate limit reached' } }),
+      });
+
+      await expect(generateAdvisorAdvice(groqConfig, 'Oi', mockFetch as any)).rejects.toThrow(/limite gratuito/i);
     });
   });
 });
