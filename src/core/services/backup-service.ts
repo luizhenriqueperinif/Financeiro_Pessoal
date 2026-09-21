@@ -10,6 +10,8 @@ export interface FinancialBackupData {
   transactions: any[];
   /** Ausente em backups anteriores à Reserva. */
   investments?: any[];
+  /** Ocorrências de regras fixas excluídas pelo usuário. */
+  recurringSkips?: any[];
 }
 
 export class BackupService {
@@ -25,6 +27,7 @@ export class BackupService {
     const installments = this.db.prepare('SELECT * FROM installments').all();
     const transactions = this.db.prepare('SELECT * FROM transactions').all();
     const investments = this.db.prepare('SELECT * FROM investments').all();
+    const recurringSkips = this.db.prepare('SELECT * FROM recurring_skips').all();
 
     return {
       version: '1.0.0',
@@ -35,6 +38,7 @@ export class BackupService {
       installments,
       transactions,
       investments,
+      recurringSkips,
     };
   }
 
@@ -70,6 +74,14 @@ export class BackupService {
       `);
       for (const rec of data.recurringRules || []) {
         insertRec.run(rec);
+      }
+
+      // Ocorrências excluídas (o DELETE das regras acima as removeu em cascata)
+      const insertSkip = this.db.prepare(
+        'INSERT OR IGNORE INTO recurring_skips (rule_id, occurrence_date) VALUES (@rule_id, @occurrence_date)'
+      );
+      for (const skip of data.recurringSkips || []) {
+        insertSkip.run(skip);
       }
 
       // Restaura compras parceladas

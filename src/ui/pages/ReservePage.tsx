@@ -5,6 +5,7 @@ import { RecurringRule } from '../../core/domain/recurring-rule.js';
 import { Money } from '../../core/value-objects/money.js';
 import { api } from '../services/api.js';
 import { formatMoney } from '../utils/formatters.js';
+import { MoneyInput } from '../components/MoneyInput.js';
 
 interface FormState {
   id?: string;
@@ -93,6 +94,8 @@ export const ReservePage: React.FC = () => {
         generatesIncome: form.generatesIncome,
         incomeDueDay: Number(form.incomeDueDay) || 15,
         linkRecurringRuleId: form.generatesIncome && form.linkRuleId ? form.linkRuleId : null,
+        // Editando com "Criar uma nova receita fixa": troca a receita vinculada
+        createNewIncomeRule: Boolean(form.id && form.generatesIncome && !form.linkRuleId),
       };
       if (form.id) await api.updateInvestment(form.id, dto);
       else await api.createInvestment(dto);
@@ -104,7 +107,7 @@ export const ReservePage: React.FC = () => {
   };
 
   const remove = async (inv: Investment) => {
-    if (!confirm(`Excluir "${inv.name}" da sua reserva?`)) return;
+    if (!confirm(`Excluir o investimento "${inv.name}"?`)) return;
     await api.deleteInvestment(inv.id);
     load();
   };
@@ -117,10 +120,10 @@ export const ReservePage: React.FC = () => {
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <PiggyBank className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
-            Reserva e Investimentos
+            Investimentos
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            O dinheiro guardado fora da conta. O Conselheiro IA considera esses valores nas análises.
+            Seu dinheiro guardado e aplicado. O Conselheiro IA considera esses valores nas análises.
           </p>
         </div>
         <button
@@ -163,16 +166,16 @@ export const ReservePage: React.FC = () => {
               <input className={inputClass} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ex.: CDB liquidez diária" />
             </div>
             <div>
-              <label className={labelClass}>Valor aplicado (R$)</label>
-              <input className={inputClass} value={form.balance} onChange={(e) => setForm({ ...form, balance: e.target.value })} placeholder="20.000,00" />
+              <label className={labelClass}>Valor aplicado</label>
+              <MoneyInput className={inputClass} value={form.balance} onChange={(balance) => setForm({ ...form, balance })} placeholder="0,00" />
             </div>
             <div>
-              <label className={labelClass}>Rendimento por mês (R$)</label>
-              <input className={inputClass} value={form.yield} onChange={(e) => setForm({ ...form, yield: e.target.value })} placeholder="600,00" />
+              <label className={labelClass}>Rendimento por mês</label>
+              <MoneyInput className={inputClass} value={form.yield} onChange={(y) => setForm({ ...form, yield: y })} placeholder="0,00" />
             </div>
             <div>
-              <label className={labelClass}>Parte do rendimento já comprometida por mês (R$)</label>
-              <input className={inputClass} value={form.commitment} onChange={(e) => setForm({ ...form, commitment: e.target.value })} placeholder="Ex.: 460,00 repassados todo mês" />
+              <label className={labelClass}>Parte do rendimento já comprometida por mês</label>
+              <MoneyInput className={inputClass} value={form.commitment} onChange={(commitment) => setForm({ ...form, commitment })} placeholder="0,00" />
             </div>
             <div className="md:col-span-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 space-y-3">
               <label className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer">
@@ -248,7 +251,7 @@ export const ReservePage: React.FC = () => {
             <PiggyBank className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
             <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">Nenhum investimento cadastrado</p>
             <button onClick={openNew} className="mt-3 text-xs text-emerald-600 font-bold hover:underline">
-              + Cadastrar minha reserva
+              + Cadastrar meu primeiro investimento
             </button>
           </div>
         ) : (

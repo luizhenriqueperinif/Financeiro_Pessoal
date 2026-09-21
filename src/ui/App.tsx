@@ -167,6 +167,7 @@ export const App: React.FC = () => {
             <DashboardPage
               selectedYearMonth={selectedYearMonth}
               refreshKey={dataVersion}
+              onDataChanged={loadGlobalBalance}
               onNavigateToIncomes={() => setCurrentPage('incomes')}
               onNavigateToExpenses={() => setCurrentPage('expenses')}
               onNavigateToInstallments={() => setCurrentPage('installments')}
@@ -178,6 +179,7 @@ export const App: React.FC = () => {
             <IncomesPage
               selectedYearMonth={selectedYearMonth}
               refreshKey={dataVersion}
+              onDataChanged={loadGlobalBalance}
               highlightId={highlightId}
               onOpenNewIncome={handleOpenNewIncome}
               categories={categories}
@@ -188,6 +190,7 @@ export const App: React.FC = () => {
             <ExpensesPage
               selectedYearMonth={selectedYearMonth}
               refreshKey={dataVersion}
+              onDataChanged={loadGlobalBalance}
               highlightId={highlightId}
               onOpenNewExpense={handleOpenNewExpense}
               categories={categories}
@@ -212,6 +215,7 @@ export const App: React.FC = () => {
           {currentPage === 'installments' && (
             <InstallmentsPage
               refreshKey={dataVersion}
+              onDataChanged={loadGlobalBalance}
               onOpenNewExpense={handleOpenNewExpense}
             />
           )}

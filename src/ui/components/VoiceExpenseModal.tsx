@@ -11,6 +11,7 @@ import {
 } from '../../core/services/voice-expense-service.js';
 import { loadStoredAIConfig } from '../services/ai-config-storage.js';
 import { api } from '../services/api.js';
+import { MoneyInput } from './MoneyInput.js';
 import { formatDate, formatMoney } from '../utils/formatters.js';
 
 interface VoiceExpenseModalProps {
@@ -162,6 +163,7 @@ export const VoiceExpenseModal: React.FC<VoiceExpenseModalProps> = ({ isOpen, on
     if (selected.length === 0) return;
     setError(null);
     setBusy('Salvando...');
+    const savedKeys = new Set<string>();
     try {
       for (const r of selected) {
         const amountCents = Money.fromReal(r.amountStr);
@@ -193,10 +195,16 @@ export const VoiceExpenseModal: React.FC<VoiceExpenseModalProps> = ({ isOpen, on
             notes: origin,
           });
         }
+        savedKeys.add(r.key);
       }
       onSuccess(`${selected.length} ${selected.length === 1 ? 'gasto lançado' : 'gastos lançados'} por áudio!`);
       onClose();
     } catch (err: any) {
+      // Os já salvos saem da revisão para não serem gravados de novo
+      setRows((prev) => prev.filter((row) => !savedKeys.has(row.key)));
+      if (savedKeys.size > 0) {
+        onSuccess(`${savedKeys.size} ${savedKeys.size === 1 ? 'gasto salvo' : 'gastos salvos'}; corrija o restante abaixo.`);
+      }
       setError(err.message);
     } finally {
       setBusy(null);
@@ -345,7 +353,7 @@ export const VoiceExpenseModal: React.FC<VoiceExpenseModalProps> = ({ isOpen, on
                         <input className={inputClass} value={r.description} onChange={(e) => updateRow(r.key, { description: e.target.value })} />
                       </td>
                       <td className="p-2">
-                        <input className={inputClass} value={r.amountStr} onChange={(e) => updateRow(r.key, { amountStr: e.target.value })} />
+                        <MoneyInput showPrefix={false} className={inputClass} value={r.amountStr} onChange={(amountStr) => updateRow(r.key, { amountStr })} />
                       </td>
                       <td className="p-2">
                         <select className={inputClass} value={r.categoryId} onChange={(e) => updateRow(r.key, { categoryId: e.target.value })}>

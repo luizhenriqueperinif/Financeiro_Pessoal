@@ -4,6 +4,7 @@ import { Category } from '../../core/domain/category.js';
 import { PaymentMethod, RecurringFrequency, TransactionType } from '../../core/types/common.js';
 import { Money } from '../../core/value-objects/money.js';
 import { api } from '../services/api.js';
+import { MoneyInput } from './MoneyInput.js';
 import { DateUtils } from '../../core/utils/date-utils.js';
 
 interface RecurringModalProps {
@@ -130,14 +131,13 @@ export const RecurringModal: React.FC<RecurringModalProps> = ({
 
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
-              Valor Recorrente (R$)
+              Valor Recorrente
             </label>
-            <input
-              type="text"
+            <MoneyInput
               required
               placeholder="0,00"
               value={amountStr}
-              onChange={(e) => setAmountStr(e.target.value)}
+              onChange={setAmountStr}
               className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xl font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
             />
           </div>
@@ -220,6 +220,7 @@ export const RecurringModal: React.FC<RecurringModalProps> = ({
                 <option value="CREDIT">Cartão de Crédito</option>
                 <option value="DEBIT">Débito em Conta</option>
                 <option value="MONEY">Dinheiro</option>
+                <option value="OTHER">Outro</option>
               </select>
             </div>
           </div>

@@ -12,7 +12,7 @@ import {
   CalendarClock,
 } from 'lucide-react';
 import { FinancialAlertsSummary, ReminderItem } from '../../core/domain/alerts.js';
-import { formatMoney } from '../utils/formatters.js';
+import { formatMoney, formatDate } from '../utils/formatters.js';
 
 interface FinancialAlertsBannerProps {
   alerts: FinancialAlertsSummary;
@@ -151,7 +151,7 @@ export const FinancialAlertsBanner: React.FC<FinancialAlertsBannerProps> = ({
       return (
         <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/20">
           <CalendarClock className="w-3 h-3" />
-          {reminder.daysDiff === 0 ? 'Vence hoje' : `Vence em ${reminder.daysDiff} dias`}
+          {reminder.daysDiff === 0 ? 'Vence hoje' : reminder.daysDiff === 1 ? 'Vence amanhã' : `Vence em ${reminder.daysDiff} dias`}
         </span>
       );
     }
@@ -307,7 +307,7 @@ export const FinancialAlertsBanner: React.FC<FinancialAlertsBannerProps> = ({
                           {renderReminderBadge(reminder)}
                         </div>
                         <span className="text-xs text-slate-500 dark:text-slate-400 block mt-0.5">
-                          Vencimento: {reminder.dueDate}
+                          Vencimento: {formatDate(reminder.dueDate)}
                         </span>
                       </div>
                     </div>

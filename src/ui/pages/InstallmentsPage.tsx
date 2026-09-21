@@ -15,18 +15,27 @@ import { api } from '../services/api.js';
 
 interface InstallmentsPageProps {
   refreshKey?: number;
+  /** Chamado após pagar, receber, excluir etc., para o App atualizar o saldo. */
+  onDataChanged?: () => void;
   onOpenNewExpense: () => void;
 }
 
 export const InstallmentsPage: React.FC<InstallmentsPageProps> = ({
   onOpenNewExpense,
   refreshKey,
+  onDataChanged,
 }) => {
   const [purchases, setPurchases] = useState<InstallmentPurchase[]>([]);
   const [expandedPurchaseId, setExpandedPurchaseId] = useState<string | null>(null);
   const [view, setView] = useState<'purchases' | 'cards'>('purchases');
   const [cards, setCards] = useState<CardSummary[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Recarrega a página e avisa o App (saldo da barra lateral)
+  const refresh = () => {
+    loadData();
+    onDataChanged?.();
+  };
 
   const loadData = async () => {
     try {
@@ -51,7 +60,7 @@ export const InstallmentsPage: React.FC<InstallmentsPageProps> = ({
   const handlePayInstallment = async (installmentId: string) => {
     try {
       await api.payInstallment(installmentId);
-      loadData();
+      refresh();
     } catch (err) {
       alert('Erro ao pagar parcela');
     }
@@ -62,7 +71,7 @@ export const InstallmentsPage: React.FC<InstallmentsPageProps> = ({
     if (!confirm(`Desmarcar o pagamento da parcela ${label}${paidOn}?`)) return;
     try {
       await api.unpayInstallment(installmentId);
-      loadData();
+      refresh();
     } catch (err) {
       alert('Erro ao desmarcar pagamento da parcela');
     }
@@ -72,7 +81,7 @@ export const InstallmentsPage: React.FC<InstallmentsPageProps> = ({
     if (confirm(`Deseja excluir a compra "${description}" e todas as suas parcelas?`)) {
       try {
         await api.deleteInstallmentPurchase(id);
-        loadData();
+        refresh();
       } catch (err) {
         alert('Erro ao excluir compra parcelada');
       }

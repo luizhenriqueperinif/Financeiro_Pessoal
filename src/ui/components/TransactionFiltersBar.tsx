@@ -5,6 +5,7 @@ import { TransactionFilters, TransactionOrigin, TransactionSort } from '../../co
 import { TransactionType } from '../../core/types/common.js';
 import { Money } from '../../core/value-objects/money.js';
 import { formatDate } from '../utils/formatters.js';
+import { MoneyInput } from './MoneyInput.js';
 
 export interface TransactionFilterState {
   search: string;
@@ -200,26 +201,12 @@ export const TransactionFiltersBar: React.FC<TransactionFiltersBarProps> = ({
       {showMore && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
           <div>
-            <label className={labelClass}>Valor mín. (R$)</label>
-            <input
-              type="text"
-              inputMode="decimal"
-              placeholder="0,00"
-              value={value.minAmount}
-              onChange={(e) => set('minAmount', e.target.value)}
-              className={inputClass}
-            />
+            <label className={labelClass}>Valor mín.</label>
+            <MoneyInput placeholder="0,00" value={value.minAmount} onChange={(v) => set('minAmount', v)} className={inputClass} />
           </div>
           <div>
-            <label className={labelClass}>Valor máx. (R$)</label>
-            <input
-              type="text"
-              inputMode="decimal"
-              placeholder="0,00"
-              value={value.maxAmount}
-              onChange={(e) => set('maxAmount', e.target.value)}
-              className={inputClass}
-            />
+            <label className={labelClass}>Valor máx.</label>
+            <MoneyInput placeholder="0,00" value={value.maxAmount} onChange={(v) => set('maxAmount', v)} className={inputClass} />
           </div>
           <div>
             <label className={labelClass}>De</label>

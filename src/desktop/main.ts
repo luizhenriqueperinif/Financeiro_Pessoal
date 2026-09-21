@@ -62,7 +62,8 @@ let appDb: AppDatabase | null = null;
 
 // Mantém o mesmo banco no modo dev (userData = "financeiro_pessoal") e no app
 // empacotado (que usaria "Financeiro Pessoal", o productName).
-app.setPath('userData', path.join(app.getPath('appData'), 'financeiro_pessoal'));
+// FINANCEIRO_USER_DATA permite abrir o app sobre outra pasta (ex.: cópia do banco para testes).
+app.setPath('userData', process.env.FINANCEIRO_USER_DATA || path.join(app.getPath('appData'), 'financeiro_pessoal'));
 
 // Duas instâncias abertas escreveriam no mesmo SQLite; foca a janela existente.
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
@@ -98,7 +99,6 @@ function initializeDatabase() {
   const deleteCategory = new DeleteCategoryUseCase(categoryRepo);
 
   const createTransaction = new CreateTransactionUseCase(transactionRepo, categoryRepo);
-  const listTransactions = new ListTransactionsUseCase(transactionRepo);
   const updateTransaction = new UpdateTransactionUseCase(transactionRepo, categoryRepo);
   const deleteTransaction = new DeleteTransactionUseCase(transactionRepo, recurringRepo);
   const markTransactionPaid = new MarkTransactionPaidUseCase(transactionRepo);
@@ -106,9 +106,10 @@ function initializeDatabase() {
 
   const createRecurring = new CreateRecurringRuleUseCase(recurringRepo, categoryRepo);
   const listRecurring = new ListRecurringRulesUseCase(recurringRepo);
-  const updateRecurring = new UpdateRecurringRuleUseCase(recurringRepo, categoryRepo);
-  const deleteRecurring = new DeleteRecurringRuleUseCase(recurringRepo);
+  const updateRecurring = new UpdateRecurringRuleUseCase(recurringRepo, categoryRepo, transactionRepo);
+  const deleteRecurring = new DeleteRecurringRuleUseCase(recurringRepo, transactionRepo);
   const processRecurring = new ProcessRecurringInstancesUseCase(recurringRepo, transactionRepo);
+  const listTransactions = new ListTransactionsUseCase(transactionRepo, processRecurring);
 
   const createInstallmentPurchase = new CreateInstallmentPurchaseUseCase(installmentRepo, categoryRepo);
   const listInstallments = new ListInstallmentPurchasesUseCase(installmentRepo);
@@ -124,9 +125,9 @@ function initializeDatabase() {
   const calculateForecast = new CalculateForecastUseCase(transactionRepo, recurringRepo);
   const investmentRepo = new SqliteInvestmentRepository(rawDb);
   const listInvestments = new ListInvestmentsUseCase(investmentRepo);
-  const createInvestment = new CreateInvestmentUseCase(investmentRepo, recurringRepo, categoryRepo);
-  const updateInvestment = new UpdateInvestmentUseCase(investmentRepo, recurringRepo, categoryRepo);
-  const deleteInvestment = new DeleteInvestmentUseCase(investmentRepo, recurringRepo);
+  const createInvestment = new CreateInvestmentUseCase(investmentRepo, recurringRepo, categoryRepo, transactionRepo);
+  const updateInvestment = new UpdateInvestmentUseCase(investmentRepo, recurringRepo, categoryRepo, transactionRepo);
+  const deleteInvestment = new DeleteInvestmentUseCase(investmentRepo, recurringRepo, transactionRepo);
   const getReserveSummary = new GetReserveSummaryUseCase(investmentRepo);
   const backupService = new BackupService(rawDb);
   const statementParser = new StatementParserService();
