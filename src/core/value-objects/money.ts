@@ -9,17 +9,34 @@ export class Money {
     if (typeof value === 'number') {
       return Math.round(value * 100);
     }
-    // Trata string no padrão brasileiro ou internacional
-    const cleaned = value
-      .replace(/\s+/g, '')
-      .replace(/R\$/g, '')
-      .replace(/\./g, '')
-      .replace(',', '.');
-    const parsed = parseFloat(cleaned);
+    const raw = value.replace(/\s+/g, '').replace(/R\$/g, '');
+    const parsed = parseFloat(Money.normalizeDecimal(raw));
     if (isNaN(parsed)) {
       throw new Error(`Valor monetário inválido: "${value}"`);
     }
     return Math.round(parsed * 100);
+  }
+
+  /**
+   * Normaliza "1.234,56", "1,234.56", "45.90" ou "1.234" para o formato "1234.56".
+   * Com os dois separadores, o último é o decimal. Só com pontos, o ponto é decimal
+   * quando há um único seguido de 1–2 dígitos; caso contrário é separador de milhar.
+   */
+  static normalizeDecimal(raw: string): string {
+    const lastComma = raw.lastIndexOf(',');
+    const lastDot = raw.lastIndexOf('.');
+    if (lastComma >= 0 && lastDot >= 0) {
+      return lastComma > lastDot
+        ? raw.replace(/\./g, '').replace(',', '.')
+        : raw.replace(/,/g, '');
+    }
+    if (lastComma >= 0) {
+      return raw.replace(',', '.');
+    }
+    if (/^[+-]?\d+\.\d{1,2}$/.test(raw)) {
+      return raw;
+    }
+    return raw.replace(/\./g, '');
   }
 
   /**

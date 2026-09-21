@@ -1,10 +1,9 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 
 import { AppDatabase } from '../infra/database/connection.js';
-import { seedUserData } from '../infra/database/seed-user-data.js';
 import { SqliteCategoryRepository } from '../infra/repositories/sqlite-category-repository.js';
 import { SqliteTransactionRepository } from '../infra/repositories/sqlite-transaction-repository.js';
 import { SqliteRecurringRuleRepository } from '../infra/repositories/sqlite-recurring-rule-repository.js';
@@ -50,6 +49,23 @@ const currentDir = typeof __dirname !== 'undefined' ? __dirname : process.cwd();
 let mainWindow: BrowserWindow | null = null;
 let appDb: AppDatabase | null = null;
 
+// Mantém o mesmo banco no modo dev (userData = "financeiro_pessoal") e no app
+// empacotado (que usaria "Financeiro Pessoal", o productName).
+app.setPath('userData', path.join(app.getPath('appData'), 'financeiro_pessoal'));
+
+// Duas instâncias abertas escreveriam no mesmo SQLite; foca a janela existente.
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+}
+
 function initializeDatabase() {
   const userDataDir = app.getPath('userData');
   if (!fs.existsSync(userDataDir)) {
@@ -59,7 +75,6 @@ function initializeDatabase() {
   appDb = new AppDatabase(dbPath);
 
   const rawDb = appDb.getRawDb();
-  seedUserData(rawDb, false);
   const categoryRepo = new SqliteCategoryRepository(rawDb);
   const transactionRepo = new SqliteTransactionRepository(rawDb);
   const recurringRepo = new SqliteRecurringRuleRepository(rawDb);
@@ -74,7 +89,7 @@ function initializeDatabase() {
   const createTransaction = new CreateTransactionUseCase(transactionRepo, categoryRepo);
   const listTransactions = new ListTransactionsUseCase(transactionRepo);
   const updateTransaction = new UpdateTransactionUseCase(transactionRepo, categoryRepo);
-  const deleteTransaction = new DeleteTransactionUseCase(transactionRepo);
+  const deleteTransaction = new DeleteTransactionUseCase(transactionRepo, recurringRepo);
   const markTransactionPaid = new MarkTransactionPaidUseCase(transactionRepo);
 
   const createRecurring = new CreateRecurringRuleUseCase(recurringRepo, categoryRepo);
@@ -95,7 +110,9 @@ function initializeDatabase() {
   const calculateForecast = new CalculateForecastUseCase(transactionRepo, recurringRepo);
   const backupService = new BackupService(rawDb);
   const statementParser = new StatementParserService();
-  const reconcileStatement = new ReconcileStatementUseCase(transactionRepo, categoryRepo);
+  const reconcileStatement = new ReconcileStatementUseCase(transactionRepo, categoryRepo, (fn) =>
+    rawDb.transaction(fn)()
+  );
 
   // Registro dos IPC Handlers
   ipcMain.handle('categories:list', (_, type) => listCategories.execute(type));
@@ -146,12 +163,28 @@ function createWindow() {
     title: 'Financeiro Pessoal',
     backgroundColor: '#090d16',
     autoHideMenuBar: true,
+    icon: path.join(currentDir, '../renderer/icon.png'),
     webPreferences: {
       preload: path.join(currentDir, 'preload.cjs'),
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: false,
+      sandbox: true,
     },
+  });
+
+  // Links externos (ex.: AI Studio) abrem no navegador, nunca dentro do app
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('https://')) {
+      shell.openExternal(url);
+    }
+    return { action: 'deny' };
+  });
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    const appUrl = mainWindow?.webContents.getURL();
+    if (url !== appUrl) {
+      event.preventDefault();
+      if (url.startsWith('https://')) shell.openExternal(url);
+    }
   });
 
   const devServerUrl = process.env.VITE_DEV_SERVER_URL;
@@ -167,6 +200,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  if (!hasSingleInstanceLock) return;
   initializeDatabase();
   createWindow();
 

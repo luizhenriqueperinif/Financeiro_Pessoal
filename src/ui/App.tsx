@@ -18,11 +18,12 @@ import { AdvisorPage } from './pages/AdvisorPage.js';
 import { Category } from '../core/domain/category.js';
 import { TransactionType } from '../core/types/common.js';
 import { api } from './services/api.js';
+import { DateUtils } from '../core/utils/date-utils.js';
 
 export const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<PageId>('dashboard');
   const [selectedYearMonth, setSelectedYearMonth] = useState<string>(
-    new Date().toISOString().slice(0, 7)
+    DateUtils.currentYearMonth()
   );
   const [categories, setCategories] = useState<Category[]>([]);
   const [currentBalanceCents, setCurrentBalanceCents] = useState<number>(0);

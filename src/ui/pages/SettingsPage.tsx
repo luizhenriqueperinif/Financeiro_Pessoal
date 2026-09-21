@@ -27,6 +27,7 @@ import {
   loadStoredAIConfig,
   saveStoredAIConfig,
 } from '../services/ai-config-storage.js';
+import { DateUtils } from '../../core/utils/date-utils.js';
 
 export const SettingsPage: React.FC = () => {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -54,7 +55,7 @@ export const SettingsPage: React.FC = () => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `backup-financeiro-pessoal-${new Date().toISOString().slice(0, 10)}.json`;
+      a.download = `backup-financeiro-pessoal-${DateUtils.today()}.json`;
       a.click();
       URL.revokeObjectURL(url);
       setSuccessMsg('Backup exportado com sucesso!');

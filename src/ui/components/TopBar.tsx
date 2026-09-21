@@ -9,6 +9,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react';
 import { getMonthName } from '../utils/formatters.js';
+import { DateUtils } from '../../core/utils/date-utils.js';
 
 interface TopBarProps {
   selectedYearMonth: string;
@@ -52,7 +53,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   };
 
   const handleCurrentMonth = () => {
-    const today = new Date().toISOString().slice(0, 7);
+    const today = DateUtils.currentYearMonth();
     onYearMonthChange(today);
   };
 

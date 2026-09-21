@@ -4,6 +4,7 @@ import { Category } from '../../core/domain/category.js';
 import { PaymentMethod, TransactionType } from '../../core/types/common.js';
 import { Money } from '../../core/value-objects/money.js';
 import { api } from '../services/api.js';
+import { DateUtils } from '../../core/utils/date-utils.js';
 
 interface TransactionModalProps {
   isOpen: boolean;
@@ -25,7 +26,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const [type, setType] = useState<TransactionType>(initialType);
   const [description, setDescription] = useState('');
   const [amountStr, setAmountStr] = useState('');
-  const [date, setDate] = useState(defaultDate || new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(defaultDate || DateUtils.today());
   const [categoryId, setCategoryId] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('PIX');
   const [status, setStatus] = useState<'PAID' | 'PENDING' | 'RECEIVED'>('PAID');
@@ -55,6 +56,16 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   }, [availableCategories, categoryId]);
 
   if (!isOpen) return null;
+
+  // Valor digitado ainda pode estar incompleto/inválido; não deve derrubar o render
+  let previewAmountCents = 0;
+  try {
+    previewAmountCents = amountStr ? Money.fromReal(amountStr) : 0;
+  } catch {
+    previewAmountCents = 0;
+  }
+  const installmentPreview = (n: number) =>
+    previewAmountCents > 0 ? `(${Money.format(Money.splitInstallments(previewAmountCents, n)[0])})` : '';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -312,7 +323,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                   >
                     {[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 18, 24, 36, 48].map((n) => (
                       <option key={n} value={n}>
-                        {n}x {amountStr ? `(${Money.format(Math.round(Money.fromReal(amountStr) / n))})` : ''}
+                        {n}x {installmentPreview(n)}
                       </option>
                     ))}
                   </select>

@@ -7,6 +7,7 @@ import {
   CreateInstallmentPurchaseUseCase,
   ListInstallmentPurchasesUseCase,
   PayInstallmentUseCase,
+  UpdateInstallmentUseCase,
   DeleteInstallmentPurchaseUseCase,
 } from '../../src/core/use-cases/installments/index.js';
 
@@ -120,5 +121,25 @@ describe('Installment Purchases Use Cases (Compras Parceladas)', () => {
 
     expect(installmentRepo.findById(compra.id)).toBeNull();
     expect(transactionRepo.list().length).toBe(0);
+  });
+
+  it('parcela atrasada volta a ficar pendente quando o vencimento é adiado', () => {
+    const outras = categoryRepo.findByName('Outras Despesas')!;
+    const updateInstallment = new UpdateInstallmentUseCase(installmentRepo);
+    const compra = createPurchase.execute({
+      description: 'Geladeira',
+      totalAmountCents: 200000,
+      totalInstallments: 2,
+      firstDueDate: '2026-08-10',
+      categoryId: outras.id,
+      paymentMethod: 'CREDIT',
+    });
+    const parcela1 = compra.installments![0];
+    expect(parcela1.status).toBe('OVERDUE');
+
+    updateInstallment.execute(parcela1.id, { amountCents: 100500 });
+    const adiada = updateInstallment.execute(parcela1.id, { dueDate: '2026-09-20' });
+
+    expect(adiada.status).toBe('PENDING');
   });
 });

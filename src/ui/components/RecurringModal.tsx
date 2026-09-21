@@ -4,6 +4,7 @@ import { Category } from '../../core/domain/category.js';
 import { PaymentMethod, RecurringFrequency, TransactionType } from '../../core/types/common.js';
 import { Money } from '../../core/value-objects/money.js';
 import { api } from '../services/api.js';
+import { DateUtils } from '../../core/utils/date-utils.js';
 
 interface RecurringModalProps {
   isOpen: boolean;
@@ -24,7 +25,7 @@ export const RecurringModal: React.FC<RecurringModalProps> = ({
   const [categoryId, setCategoryId] = useState('');
   const [frequency, setFrequency] = useState<RecurringFrequency>('MONTHLY');
   const [dueDay, setDueDay] = useState(10);
-  const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
+  const [startDate, setStartDate] = useState(DateUtils.today());
   const [endDate, setEndDate] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('PIX');
   const [notes, setNotes] = useState('');

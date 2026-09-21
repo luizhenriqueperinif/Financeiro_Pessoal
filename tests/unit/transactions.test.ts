@@ -130,4 +130,33 @@ describe('Transaction Use Cases (Receitas e Despesas)', () => {
     expect(excluida).toBe(true);
     expect(transactionRepo.findById(tx.id)).toBeNull();
   });
+
+  it('conta atrasada volta a ficar pendente quando o vencimento é adiado', () => {
+    const moradia = categoryRepo.findByName('Moradia')!;
+    const tx = createTx.execute({
+      description: 'Internet',
+      amountCents: 9990,
+      type: 'EXPENSE',
+      categoryId: moradia.id,
+      date: '2026-08-25',
+      paymentMethod: 'PIX',
+      status: 'PENDING',
+    });
+    expect(listTx.execute({ yearMonth: '2026-08' })[0].status).toBe('OVERDUE');
+
+    updateTx.execute(tx.id, { description: 'Internet Fibra' });
+    const adiada = updateTx.execute(tx.id, { date: '2026-09-15' });
+
+    expect(adiada.status).toBe('PENDING');
+  });
+
+  it('filtra por atrasadas e por pendentes a vencer separadamente', () => {
+    const moradia = categoryRepo.findByName('Moradia')!;
+    const base = { amountCents: 1000, type: 'EXPENSE' as const, categoryId: moradia.id, paymentMethod: 'PIX' as const, status: 'PENDING' as const };
+    createTx.execute({ ...base, description: 'Vencida', date: '2026-08-20' });
+    createTx.execute({ ...base, description: 'A vencer', date: '2026-09-10' });
+
+    expect(listTx.execute({ status: 'OVERDUE' }).map((t) => t.description)).toEqual(['Vencida']);
+    expect(listTx.execute({ status: 'PENDING' }).map((t) => t.description)).toEqual(['A vencer']);
+  });
 });

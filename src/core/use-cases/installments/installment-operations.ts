@@ -4,6 +4,7 @@ import {
   UpdateInstallmentDTO,
 } from '../../domain/installment-purchase.js';
 import { IInstallmentPurchaseRepository } from '../../domain/repositories.js';
+import { DateUtils } from '../../utils/date-utils.js';
 
 export class ListInstallmentPurchasesUseCase {
   constructor(private installmentRepo: IInstallmentPurchaseRepository) {}
@@ -22,7 +23,7 @@ export class PayInstallmentUseCase {
       throw new Error('Parcela não encontrada');
     }
 
-    const targetDate = paymentDate || new Date().toISOString().slice(0, 10);
+    const targetDate = paymentDate || DateUtils.today();
     const updated = this.installmentRepo.updateInstallment(installmentId, {
       status: 'PAID',
       paymentDate: targetDate,

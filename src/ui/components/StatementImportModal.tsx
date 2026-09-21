@@ -133,10 +133,12 @@ export const StatementImportModal: React.FC<StatementImportModalProps> = ({
         categoryId: i.categoryId,
         paymentMethod: (parseResult?.accountType === 'CREDIT_CARD' ? 'CREDIT' : 'PIX') as PaymentMethod,
         notes: `Importado de extrato (${parseResult?.bankName || 'Bancário'})`,
+        settlesTransactionId: i.settlesTransactionId,
       }));
 
-      await api.reconcileCommit(itemsToCommit);
-      alert(`${selected.length} lançamentos importados com sucesso!`);
+      const result = await api.reconcileCommit(itemsToCommit);
+      const settledMsg = result.settledCount > 0 ? ` e ${result.settledCount} pendentes quitados` : '';
+      alert(`${result.importedCount} lançamentos importados${settledMsg} com sucesso!`);
       onSuccess();
       onClose();
     } catch (err: any) {
@@ -311,6 +313,14 @@ export const StatementImportModal: React.FC<StatementImportModalProps> = ({
                               >
                                 <AlertTriangle className="w-3 h-3" />
                                 Duplicata
+                              </span>
+                            ) : row.settlesTransactionId ? (
+                              <span
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500/10 text-sky-600 dark:text-sky-400"
+                                title={row.duplicateReason}
+                              >
+                                <CheckCircle2 className="w-3 h-3" />
+                                Quita pendente
                               </span>
                             ) : (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">

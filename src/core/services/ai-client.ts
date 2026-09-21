@@ -30,8 +30,8 @@ export async function fetchAvailableGeminiModels(
   const cleanKey = apiKey.trim();
   if (!cleanKey) return [];
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${cleanKey}`;
-  const res = await fetchFn(url);
+  const url = 'https://generativelanguage.googleapis.com/v1beta/models';
+  const res = await fetchFn(url, { headers: { 'x-goog-api-key': cleanKey } });
 
   if (!res.ok) {
     const errJson = await res.json().catch(() => ({}));
@@ -90,7 +90,7 @@ export async function generateAdvisorAdvice(
       model = 'gemini-3.1-pro-preview';
     }
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
     // Monta histórico de turnos para o Gemini
     const contents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
@@ -118,7 +118,7 @@ export async function generateAdvisorAdvice(
 
     const res = await fetchFn(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
       body: JSON.stringify(body),
     });
 

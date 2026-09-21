@@ -25,6 +25,8 @@ export interface ReconciliationPreviewItem {
   isDuplicate: boolean;
   duplicateReason?: string;
   matchedTransactionId?: string;
+  /** Lançamento pendente que este item do extrato quita (em vez de criar um novo). */
+  settlesTransactionId?: string;
   categoryId: string;
   categoryName?: string;
   selected: boolean;
@@ -38,10 +40,13 @@ export interface ConfirmedStatementItem {
   categoryId: string;
   paymentMethod?: PaymentMethod;
   notes?: string;
+  /** Quando presente, marca este lançamento pendente como pago/recebido em vez de criar outro. */
+  settlesTransactionId?: string;
 }
 
 export interface ReconciliationResult {
   importedCount: number;
+  settledCount: number;
   skippedCount: number;
   transactions: Transaction[];
 }
