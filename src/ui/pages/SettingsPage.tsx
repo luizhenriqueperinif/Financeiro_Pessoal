@@ -211,7 +211,7 @@ export const SettingsPage: React.FC = () => {
               type="button"
               onClick={() =>
                 aiConfig.provider !== 'groq' &&
-                setAiConfig({ ...aiConfig, provider: 'groq', model: 'openai/gpt-oss-120b', apiKey: '' })
+                setAiConfig({ ...aiConfig, provider: 'groq', model: 'qwen/qwen3.8-27b', apiKey: '' })
               }
               className={`p-3.5 rounded-xl border text-left flex items-start gap-3 transition-all cursor-pointer ${
                 aiConfig.provider === 'groq'
@@ -333,8 +333,8 @@ export const SettingsPage: React.FC = () => {
                 onChange={(e) => setAiConfig({ ...aiConfig, model: e.target.value })}
                 className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
               >
-                <option value="openai/gpt-oss-120b">GPT-OSS 120B (Recomendado — melhores análises)</option>
-                <option value="qwen/qwen3.8-27b">Qwen 3.8 27B (Alternativa equilibrada)</option>
+                <option value="qwen/qwen3.8-27b">Qwen 3.8 27B (Recomendado — contas mais precisas)</option>
+                <option value="openai/gpt-oss-120b">GPT-OSS 120B (Alternativa)</option>
                 <option value="openai/gpt-oss-20b">GPT-OSS 20B (Mais leve e rápido)</option>
               </select>
             </div>
