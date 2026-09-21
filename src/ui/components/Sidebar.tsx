@@ -11,6 +11,7 @@ import {
   Settings,
   Wallet,
   Sparkles,
+  PiggyBank,
 } from 'lucide-react';
 
 export type PageId =
@@ -20,6 +21,7 @@ export type PageId =
   | 'categories'
   | 'recurring'
   | 'installments'
+  | 'reserve'
   | 'calendar'
   | 'reports'
   | 'advisor'
@@ -43,6 +45,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'categories' as PageId, label: 'Categorias', icon: Tag },
     { id: 'recurring' as PageId, label: 'Despesas Fixas', icon: Repeat },
     { id: 'installments' as PageId, label: 'Parcelamentos', icon: CreditCard },
+    { id: 'reserve' as PageId, label: 'Reserva', icon: PiggyBank },
     { id: 'calendar' as PageId, label: 'Calendário', icon: Calendar },
     { id: 'reports' as PageId, label: 'Relatórios', icon: BarChart3 },
     { id: 'advisor' as PageId, label: 'Conselheiro IA', icon: Sparkles },

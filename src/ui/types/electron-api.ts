@@ -3,6 +3,7 @@ import { Transaction, CreateTransactionDTO, UpdateTransactionDTO, TransactionFil
 import { RecurringRule, CreateRecurringRuleDTO, UpdateRecurringRuleDTO } from '../../core/domain/recurring-rule.js';
 import { InstallmentPurchase, Installment, CreateInstallmentPurchaseDTO, UpdateInstallmentDTO, CardSummary } from '../../core/domain/installment-purchase.js';
 import { DashboardMetrics } from '../../core/domain/dashboard.js';
+import { Investment, CreateInvestmentDTO, UpdateInvestmentDTO, ReserveSummary } from '../../core/domain/investment.js';
 import { CalendarMonthData } from '../../core/domain/calendar.js';
 import { FinancialReportsResult } from '../../core/domain/reports.js';
 import { ForecastResult } from '../../core/domain/forecast.js';
@@ -45,6 +46,13 @@ export interface IElectronAPI {
   getForecast(startYearMonth?: string, count?: number): Promise<ForecastResult>;
 
   // Backup e Restauração
+  // Reserva e investimentos
+  listInvestments(): Promise<Investment[]>;
+  createInvestment(dto: CreateInvestmentDTO): Promise<Investment>;
+  updateInvestment(id: string, dto: UpdateInvestmentDTO): Promise<Investment>;
+  deleteInvestment(id: string): Promise<boolean>;
+  getReserveSummary(): Promise<ReserveSummary>;
+
   exportBackupJSON(): Promise<string>;
   importBackupJSON(jsonContent: string): Promise<boolean>;
 

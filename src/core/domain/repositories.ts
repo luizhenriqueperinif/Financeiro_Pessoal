@@ -1,3 +1,4 @@
+import { Investment, CreateInvestmentDTO, UpdateInvestmentDTO } from './investment.js';
 import {
   Category,
   CreateCategoryDTO,
@@ -70,4 +71,12 @@ export interface IInstallmentPurchaseRepository {
     data: UpdateInstallmentDTO
   ): Installment | null;
   listInstallmentsByMonth(yearMonth: string): Installment[];
+}
+
+export interface IInvestmentRepository {
+  create(data: CreateInvestmentDTO): Investment;
+  findById(id: string): Investment | null;
+  list(): Investment[];
+  update(id: string, data: UpdateInvestmentDTO): Investment | null;
+  delete(id: string): boolean;
 }

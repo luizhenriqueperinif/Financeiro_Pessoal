@@ -1,6 +1,7 @@
 import { DashboardMetrics } from '../domain/dashboard.js';
 import { Transaction } from '../domain/transaction.js';
 import { CardSummary } from '../domain/installment-purchase.js';
+import { ReserveSummary } from '../domain/investment.js';
 import { Money } from '../value-objects/money.js';
 import { DateUtils } from '../utils/date-utils.js';
 
@@ -8,6 +9,7 @@ import { DateUtils } from '../utils/date-utils.js';
 export interface AdvisorDetails {
   transactions?: Transaction[];
   cards?: CardSummary[];
+  reserve?: ReserveSummary;
   today?: string;
 }
 
@@ -57,6 +59,24 @@ function cardsSection(cards: CardSummary[]): string {
 ${lines.join('\n')}`;
 }
 
+function reserveSection(reserve: ReserveSummary): string {
+  if (reserve.count === 0) {
+    return '### RESERVA / INVESTIMENTOS:\n- Nenhuma reserva cadastrada (o usuário não informou investimentos).';
+  }
+  const lines = reserve.investments.map(
+    (i) =>
+      `- ${i.name}: ${Money.format(i.balanceCents)} aplicado; rende ~${Money.format(i.monthlyYieldCents)}/mês` +
+      (i.monthlyCommitmentCents > 0 ? `, dos quais ${Money.format(i.monthlyCommitmentCents)} já estão comprometidos todo mês` : '') +
+      (i.notes ? ` (${i.notes})` : '')
+  );
+  return `### RESERVA / INVESTIMENTOS (fora do saldo em conta):
+${lines.join('\n')}
+- Total: ${Money.format(reserve.totalBalanceCents)} | Rendimento ${Money.format(reserve.monthlyYieldCents)}/mês − compromissos ${Money.format(
+    reserve.monthlyYieldCents - reserve.monthlyNetYieldCents
+  )} = sobra ${Money.format(reserve.monthlyNetYieldCents)}/mês para o usuário
+- Resgatar da reserva reduz o rendimento futuro; compare esse custo com o benefício antes de sugerir.`;
+}
+
 export function buildFinancialContextPrompt(
   metrics: DashboardMetrics,
   userQuestion: string,
@@ -66,6 +86,7 @@ export function buildFinancialContextPrompt(
   const detailSections = [
     details.transactions ? transactionsSection(details.transactions, today) : '',
     details.cards ? cardsSection(details.cards) : '',
+    details.reserve ? reserveSection(details.reserve) : '',
   ]
     .filter(Boolean)
     .join('\n\n');

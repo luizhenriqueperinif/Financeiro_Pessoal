@@ -8,6 +8,14 @@ import { SqliteCategoryRepository } from '../infra/repositories/sqlite-category-
 import { SqliteTransactionRepository } from '../infra/repositories/sqlite-transaction-repository.js';
 import { SqliteRecurringRuleRepository } from '../infra/repositories/sqlite-recurring-rule-repository.js';
 import { SqliteInstallmentPurchaseRepository } from '../infra/repositories/sqlite-installment-purchase-repository.js';
+import { SqliteInvestmentRepository } from '../infra/repositories/sqlite-investment-repository.js';
+import {
+  CreateInvestmentUseCase,
+  ListInvestmentsUseCase,
+  UpdateInvestmentUseCase,
+  DeleteInvestmentUseCase,
+  GetReserveSummaryUseCase,
+} from '../core/use-cases/investments/index.js';
 
 import {
   CreateCategoryUseCase,
@@ -114,6 +122,12 @@ function initializeDatabase() {
   const getCalendar = new GetCalendarDataUseCase(transactionRepo, recurringRepo);
   const getReports = new GetFinancialReportsUseCase(transactionRepo, recurringRepo, installmentRepo, categoryRepo);
   const calculateForecast = new CalculateForecastUseCase(transactionRepo, recurringRepo);
+  const investmentRepo = new SqliteInvestmentRepository(rawDb);
+  const listInvestments = new ListInvestmentsUseCase(investmentRepo);
+  const createInvestment = new CreateInvestmentUseCase(investmentRepo);
+  const updateInvestment = new UpdateInvestmentUseCase(investmentRepo);
+  const deleteInvestment = new DeleteInvestmentUseCase(investmentRepo);
+  const getReserveSummary = new GetReserveSummaryUseCase(investmentRepo);
   const backupService = new BackupService(rawDb);
   const statementParser = new StatementParserService();
   const reconcileStatement = new ReconcileStatementUseCase(transactionRepo, categoryRepo, (fn) =>
@@ -150,6 +164,12 @@ function initializeDatabase() {
   ipcMain.handle('calendar:getData', (_, ym) => getCalendar.execute(ym));
   ipcMain.handle('reports:getReports', (_, y) => getReports.execute(y));
   ipcMain.handle('forecast:getForecast', (_, ym, count) => calculateForecast.execute(ym, count));
+
+  ipcMain.handle('investments:list', () => listInvestments.execute());
+  ipcMain.handle('investments:create', (_, dto) => createInvestment.execute(dto));
+  ipcMain.handle('investments:update', (_, id, dto) => updateInvestment.execute(id, dto));
+  ipcMain.handle('investments:delete', (_, id) => deleteInvestment.execute(id));
+  ipcMain.handle('investments:summary', () => getReserveSummary.execute());
 
   ipcMain.handle('backup:exportJSON', () => JSON.stringify(backupService.exportToJSON(), null, 2));
   ipcMain.handle('backup:importJSON', (_, jsonStr) => {

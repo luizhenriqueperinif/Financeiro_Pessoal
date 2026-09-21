@@ -141,6 +141,21 @@ describe('AI Advisor Prompt Builder (Construção do Contexto Financeiro para IA
       expect(prompt).toMatch(/nov\/26.*R\$\s?194,94/);
     });
 
+    it('informa a reserva, o rendimento e o que já está comprometido dele', () => {
+      const prompt = buildFinancialContextPrompt(mockMetrics, 'Uso a reserva?', {
+        ...details,
+        reserve: {
+          count: 1, totalBalanceCents: 2000000, monthlyYieldCents: 60000, monthlyNetYieldCents: 14000,
+          investments: [{ id: 'i', name: 'CDB', balanceCents: 2000000, monthlyYieldCents: 60000, monthlyCommitmentCents: 46000,
+            notes: 'Repasse ao meu pai', createdAt: '', updatedAt: '' }],
+        },
+      });
+      expect(prompt).toMatch(/RESERVA/);
+      expect(prompt).toMatch(/CDB.*R\$\s?20\.000,00/);
+      expect(prompt).toMatch(/R\$\s?600,00.*R\$\s?460,00.*R\$\s?140,00/s);
+      expect(prompt).toContain('Repasse ao meu pai');
+    });
+
     it('proíbe inventar gastos e pede resposta curta', () => {
       const prompt = buildFinancialContextPrompt(mockMetrics, 'Oi', details);
       expect(prompt).toMatch(/não invente/i);

@@ -38,6 +38,13 @@ const api: IElectronAPI = {
   getForecast: (startYearMonth, count) => ipcRenderer.invoke('forecast:getForecast', startYearMonth, count),
 
   // Backup e Restauração
+  // Reserva e investimentos
+  listInvestments: () => ipcRenderer.invoke('investments:list'),
+  createInvestment: (dto) => ipcRenderer.invoke('investments:create', dto),
+  updateInvestment: (id, dto) => ipcRenderer.invoke('investments:update', id, dto),
+  deleteInvestment: (id) => ipcRenderer.invoke('investments:delete', id),
+  getReserveSummary: () => ipcRenderer.invoke('investments:summary'),
+
   exportBackupJSON: () => ipcRenderer.invoke('backup:exportJSON'),
   importBackupJSON: (jsonContent) => ipcRenderer.invoke('backup:importJSON', jsonContent),
 

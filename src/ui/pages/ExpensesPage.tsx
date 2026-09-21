@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Plus,
+  Mic,
   CheckCircle2,
   XCircle,
   Trash2,
@@ -13,6 +14,7 @@ import { Transaction } from '../../core/domain/transaction.js';
 import { Category } from '../../core/domain/category.js';
 import { formatMoney, formatDate } from '../utils/formatters.js';
 import { api } from '../services/api.js';
+import { VoiceExpenseModal } from '../components/VoiceExpenseModal.js';
 import {
   TransactionFiltersBar,
   EMPTY_FILTERS,
@@ -33,6 +35,8 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
 }) => {
   const [expenses, setExpenses] = useState<Transaction[]>([]);
   const [filters, setFilters] = useState(EMPTY_FILTERS);
+  const [voiceOpen, setVoiceOpen] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const loadData = async () => {
@@ -103,14 +107,40 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
           </p>
         </div>
 
-        <button
-          onClick={onOpenNewExpense}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-600/30 transition-all active:scale-95"
-        >
-          <Plus className="w-4 h-4" />
-          Nova Despesa
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setVoiceOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-rose-500/40 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs font-bold transition-all active:scale-95"
+          >
+            <Mic className="w-4 h-4" />
+            Lançar por áudio
+          </button>
+          <button
+            onClick={onOpenNewExpense}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-600/30 transition-all active:scale-95"
+          >
+            <Plus className="w-4 h-4" />
+            Nova Despesa
+          </button>
+        </div>
       </div>
+
+      {notice && (
+        <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs font-semibold text-emerald-700 dark:text-emerald-300 flex justify-between">
+          <span>{notice}</span>
+          <button onClick={() => setNotice(null)}>✕</button>
+        </div>
+      )}
+
+      <VoiceExpenseModal
+        isOpen={voiceOpen}
+        onClose={() => setVoiceOpen(false)}
+        categories={categories}
+        onSuccess={(msg) => {
+          setNotice(msg);
+          loadData();
+        }}
+      />
 
       {/* Cards de Resumo */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
