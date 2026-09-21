@@ -15,6 +15,7 @@ import { CalendarPage } from './pages/CalendarPage.js';
 import { ReportsPage } from './pages/ReportsPage.js';
 import { SettingsPage } from './pages/SettingsPage.js';
 import { AdvisorPage } from './pages/AdvisorPage.js';
+import { ReservePage } from './pages/ReservePage.js';
 import { Category } from '../core/domain/category.js';
 import { TransactionType } from '../core/types/common.js';
 import { api } from './services/api.js';
@@ -189,6 +190,8 @@ export const App: React.FC = () => {
               onOpenNewExpense={handleOpenNewExpense}
             />
           )}
+
+          {currentPage === 'reserve' && <ReservePage />}
 
           {currentPage === 'calendar' && (
             <CalendarPage

@@ -111,11 +111,12 @@ export const AdvisorPage: React.FC<AdvisorPageProps> = ({
       }
 
       // Monta o prompt com dados do domínio e histórico recente para continuidade de conversa
-      const [transactions, cards] = await Promise.all([
+      const [transactions, cards, reserve] = await Promise.all([
         api.listTransactions({ yearMonth: selectedYearMonth }),
         api.getCardSummaries(),
+        api.getReserveSummary(),
       ]);
-      const fullPrompt = buildFinancialContextPrompt(metrics, query, { transactions, cards });
+      const fullPrompt = buildFinancialContextPrompt(metrics, query, { transactions, cards, reserve });
       const advice = await generateAdvisorAdvice(aiConfig, fullPrompt, undefined, messages);
 
       const assistantMsg: ChatMessage = {

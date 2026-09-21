@@ -266,16 +266,17 @@ export async function generateAdvisorAdvice(
   });
 }
 
-type ChatCompletionMessage = { role: 'user' | 'assistant'; content: string };
+export type ChatCompletionMessage = { role: 'system' | 'user' | 'assistant'; content: string };
 
 /** Cliente para APIs no formato OpenAI /chat/completions (Groq, Ollama). */
-async function callChatCompletions(opts: {
+export async function callChatCompletions(opts: {
   baseUrl: string;
   apiKey?: string;
   model: string;
   messages: ChatCompletionMessage[];
   providerLabel: string;
   fetchFn: typeof fetch;
+  temperature?: number;
 }): Promise<string> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (opts.apiKey) {
@@ -285,7 +286,7 @@ async function callChatCompletions(opts: {
   const body = {
     model: opts.model,
     messages: opts.messages,
-    temperature: 0.4,
+    temperature: opts.temperature ?? 0.4,
     // Modelos de raciocínio (ex.: GPT-OSS) gastam parte do limite pensando
     max_tokens: 4096,
   };

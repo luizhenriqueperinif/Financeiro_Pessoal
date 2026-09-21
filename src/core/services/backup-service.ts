@@ -8,6 +8,8 @@ export interface FinancialBackupData {
   installmentPurchases: any[];
   installments: any[];
   transactions: any[];
+  /** Ausente em backups anteriores à Reserva. */
+  investments?: any[];
 }
 
 export class BackupService {
@@ -22,6 +24,7 @@ export class BackupService {
     const installmentPurchases = this.db.prepare('SELECT * FROM installment_purchases').all();
     const installments = this.db.prepare('SELECT * FROM installments').all();
     const transactions = this.db.prepare('SELECT * FROM transactions').all();
+    const investments = this.db.prepare('SELECT * FROM investments').all();
 
     return {
       version: '1.0.0',
@@ -31,6 +34,7 @@ export class BackupService {
       installmentPurchases,
       installments,
       transactions,
+      investments,
     };
   }
 
@@ -94,6 +98,18 @@ export class BackupService {
       `);
       for (const tx of data.transactions || []) {
         insertTx.run(tx);
+      }
+
+      // Backups antigos não trazem a reserva: nesse caso ela é mantida como está
+      if (Array.isArray(data.investments)) {
+        this.db.prepare('DELETE FROM investments').run();
+        const insertInv = this.db.prepare(`
+          INSERT INTO investments (id, name, balance_cents, monthly_yield_cents, monthly_commitment_cents, notes, created_at, updated_at)
+          VALUES (@id, @name, @balance_cents, @monthly_yield_cents, @monthly_commitment_cents, @notes, @created_at, @updated_at)
+        `);
+        for (const inv of data.investments) {
+          insertInv.run(inv);
+        }
       }
     });
 

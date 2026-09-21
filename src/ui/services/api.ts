@@ -5,6 +5,8 @@ import { RecurringRule, CreateRecurringRuleDTO, UpdateRecurringRuleDTO } from '.
 import { InstallmentPurchase, Installment, CreateInstallmentPurchaseDTO, UpdateInstallmentDTO, CardSummary } from '../../core/domain/installment-purchase.js';
 import { GetCardSummariesUseCase } from '../../core/use-cases/installments/installment-operations.js';
 import { DashboardMetrics } from '../../core/domain/dashboard.js';
+import { Investment, CreateInvestmentDTO, UpdateInvestmentDTO, ReserveSummary } from '../../core/domain/investment.js';
+import { GetReserveSummaryUseCase } from '../../core/use-cases/investments/index.js';
 import { CalendarMonthData } from '../../core/domain/calendar.js';
 import { FinancialReportsResult } from '../../core/domain/reports.js';
 import { ForecastResult } from '../../core/domain/forecast.js';
@@ -719,6 +721,58 @@ class ApiClient implements IElectronAPI {
       localStorage.removeItem('fp_categories');
     }
     return true;
+  }
+
+  private readInvestments(): Investment[] {
+    const stored = localStorage.getItem('fp_investments');
+    return stored ? JSON.parse(stored) : [];
+  }
+
+  private writeInvestments(list: Investment[]): void {
+    localStorage.setItem('fp_investments', JSON.stringify(list));
+  }
+
+  async listInvestments(): Promise<Investment[]> {
+    if (this.hasElectron) return window.api!.listInvestments();
+    return this.readInvestments();
+  }
+
+  async createInvestment(dto: CreateInvestmentDTO): Promise<Investment> {
+    if (this.hasElectron) return window.api!.createInvestment(dto);
+    const now = new Date().toISOString();
+    const inv: Investment = {
+      id: String(Date.now()),
+      name: dto.name.trim(),
+      balanceCents: dto.balanceCents,
+      monthlyYieldCents: dto.monthlyYieldCents ?? 0,
+      monthlyCommitmentCents: dto.monthlyCommitmentCents ?? 0,
+      notes: dto.notes ?? null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.writeInvestments([...this.readInvestments(), inv]);
+    return inv;
+  }
+
+  async updateInvestment(id: string, dto: UpdateInvestmentDTO): Promise<Investment> {
+    if (this.hasElectron) return window.api!.updateInvestment(id, dto);
+    const list = this.readInvestments();
+    const idx = list.findIndex((i) => i.id === id);
+    if (idx === -1) throw new Error('Investimento não encontrado');
+    list[idx] = { ...list[idx], ...dto, updatedAt: new Date().toISOString() } as Investment;
+    this.writeInvestments(list);
+    return list[idx];
+  }
+
+  async deleteInvestment(id: string): Promise<boolean> {
+    if (this.hasElectron) return window.api!.deleteInvestment(id);
+    this.writeInvestments(this.readInvestments().filter((i) => i.id !== id));
+    return true;
+  }
+
+  async getReserveSummary(): Promise<ReserveSummary> {
+    if (this.hasElectron) return window.api!.getReserveSummary();
+    return new GetReserveSummaryUseCase({ list: () => this.readInvestments() } as any).execute();
   }
 }
 

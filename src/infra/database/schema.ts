@@ -87,6 +87,18 @@ CREATE TABLE IF NOT EXISTS recurring_skips (
   PRIMARY KEY (rule_id, occurrence_date)
 );
 
+-- Reserva e investimentos do usuário
+CREATE TABLE IF NOT EXISTS investments (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  balance_cents INTEGER NOT NULL CHECK(balance_cents >= 0),
+  monthly_yield_cents INTEGER NOT NULL DEFAULT 0 CHECK(monthly_yield_cents >= 0),
+  monthly_commitment_cents INTEGER NOT NULL DEFAULT 0 CHECK(monthly_commitment_cents >= 0),
+  notes TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
 -- Índices para consultas de alta performance
 CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date);
 CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(type);
