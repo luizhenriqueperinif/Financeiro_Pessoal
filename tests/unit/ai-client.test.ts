@@ -223,4 +223,60 @@ describe('AIClient (Integração com Provedores Gratuitos de IA)', () => {
     expect(result.suggestedModel).toBe('gemini-3.6-flash');
     expect(result.availableModels).toContain('gemini-3.6-flash');
   });
+
+  describe('quando o Google está sobrecarregado', () => {
+    const overloaded = () => ({
+      ok: false,
+      status: 503,
+      statusText: 'Service Unavailable',
+      json: async () => ({ error: { code: 503, status: 'UNAVAILABLE', message: 'This model is currently experiencing high demand.' } }),
+    });
+    const answer = (text: string) => ({
+      ok: true,
+      json: async () => ({ candidates: [{ content: { parts: [{ text }] } }] }),
+    });
+    const config: AIConfig = { provider: 'gemini', apiKey: 'k', model: 'gemini-3.6-flash' };
+
+    it('tenta automaticamente outro modelo e devolve a resposta dele', async () => {
+      const mockFetch = vi.fn().mockResolvedValueOnce(overloaded()).mockResolvedValueOnce(answer('Resposta do reserva'));
+
+      const reply = await generateAdvisorAdvice(config, 'Oi', mockFetch as any);
+
+      expect(reply).toBe('Resposta do reserva');
+      expect(mockFetch.mock.calls[0][0]).toContain('/models/gemini-3.6-flash:');
+      expect(mockFetch.mock.calls[1][0]).not.toContain('/models/gemini-3.6-flash:');
+    });
+
+    it('explica que o serviço está sobrecarregado quando todas as tentativas falham', async () => {
+      const mockFetch = vi.fn().mockImplementation(async () => overloaded());
+
+      await expect(generateAdvisorAdvice(config, 'Oi', mockFetch as any)).rejects.toThrow(/sobrecarregad/i);
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+    });
+
+    it('testAIConnection informa sobrecarga em vez de dizer que o modelo é inacessível', async () => {
+      const { testAIConnection } = await import('../../src/core/services/ai-client.js');
+      const mockFetch = vi.fn().mockImplementation(async (url: string) =>
+        url.includes(':generateContent') ? overloaded() : { ok: true, json: async () => ({ models: [] }) }
+      );
+
+      const result = await testAIConnection(config, mockFetch as any);
+
+      expect(result.success).toBe(false);
+      expect(result.message).toMatch(/sobrecarregad/i);
+      expect(result.message).not.toMatch(/não pôde ser acessado/);
+    });
+
+    it('testAIConnection bem-sucedido por outro modelo diz qual respondeu', async () => {
+      const { testAIConnection } = await import('../../src/core/services/ai-client.js');
+      const mockFetch = vi.fn().mockResolvedValueOnce(overloaded()).mockResolvedValueOnce(answer('OK'));
+
+      const result = await testAIConnection(config, mockFetch as any);
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('gemini-3.6-flash');
+      expect(result.suggestedModel).toBeDefined();
+      expect(result.suggestedModel).not.toBe('gemini-3.6-flash');
+    });
+  });
 });

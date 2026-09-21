@@ -61,6 +61,122 @@ export async function fetchAvailableGeminiModels(
   });
 }
 
+type GeminiContent = { role: 'user' | 'model'; parts: Array<{ text: string }> };
+
+/**
+ * Modelos tentados, em ordem, quando o escolhido está sobrecarregado (503/429/500)
+ * ou não responde a tempo. A sobrecarga no Google costuma atingir um modelo por vez.
+ */
+export const GEMINI_FALLBACK_MODELS = [
+  'gemini-3.6-flash',
+  'gemini-3.5-flash',
+  'gemini-3.5-flash-lite',
+  'gemini-3.8-flash',
+  'gemini-3.1-flash-lite',
+];
+const GEMINI_MAX_ATTEMPTS = 3;
+const GEMINI_TIMEOUT_MS = 30_000;
+
+/** Erro temporário do lado do Google: vale tentar outro modelo ou mais tarde. */
+export class GeminiUnavailableError extends Error {
+  constructor(message: string, public triedModels: string[] = []) {
+    super(message);
+    this.name = 'GeminiUnavailableError';
+  }
+}
+
+async function callGemini(
+  apiKey: string,
+  model: string,
+  contents: GeminiContent[],
+  fetchFn: typeof fetch
+): Promise<string> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+  const body = {
+    contents,
+    // Modelos 3.x gastam parte do limite "pensando"; 1000 tokens cortava respostas longas
+    generationConfig: { temperature: 0.4, maxOutputTokens: 4096 },
+  };
+
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : undefined;
+  const timer = controller ? setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS) : undefined;
+  let res: Response;
+  try {
+    res = await fetchFn(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+      body: JSON.stringify(body),
+      signal: controller?.signal,
+    });
+  } catch (err: any) {
+    if (err?.name === 'AbortError') {
+      throw new GeminiUnavailableError(`O modelo "${model}" não respondeu em ${GEMINI_TIMEOUT_MS / 1000}s.`);
+    }
+    throw new Error(`Não foi possível conectar ao Google Gemini. Verifique sua internet. (${err?.message || err})`);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+
+  if (!res.ok) {
+    const errJson = await res.json().catch(() => ({}));
+    const errMsg = errJson?.error?.message || `Erro ${res.status}: ${res.statusText}`;
+
+    if (res.status === 503 || res.status === 429 || res.status === 500) {
+      throw new GeminiUnavailableError(`O modelo "${model}" está indisponível no momento (${errMsg}).`);
+    }
+
+    if (
+      res.status === 404 ||
+      errMsg.includes('is not found for API version') ||
+      errMsg.includes('is no longer available') ||
+      errMsg.includes('is not supported for generateContent')
+    ) {
+      throw new Error(
+        `O modelo "${model}" não está acessível nesta chave Google (${errMsg}). Selecione "gemini-3.6-flash" ou clique em "Detectar modelos da minha chave" em Configurações.`
+      );
+    }
+
+    throw new Error(`Falha na API do Google Gemini: ${errMsg}`);
+  }
+
+  const data = await res.json();
+  const candidate = data.candidates?.[0];
+  const textPart = candidate?.content?.parts?.find((p: any) => Boolean(p.text));
+  const text = textPart?.text;
+
+  if (!text) {
+    throw new Error('A IA não retornou nenhuma resposta textual.');
+  }
+
+  return text.trim();
+}
+
+/** Chama o modelo escolhido e, se o Google estiver sobrecarregado, tenta os modelos reservas. */
+async function callGeminiWithFallback(
+  apiKey: string,
+  model: string,
+  contents: GeminiContent[],
+  fetchFn: typeof fetch
+): Promise<{ text: string; model: string }> {
+  const candidates = [model, ...GEMINI_FALLBACK_MODELS.filter((m) => m !== model)].slice(0, GEMINI_MAX_ATTEMPTS);
+  const tried: string[] = [];
+
+  for (const candidate of candidates) {
+    tried.push(candidate);
+    try {
+      return { text: await callGemini(apiKey, candidate, contents, fetchFn), model: candidate };
+    } catch (err) {
+      if (!(err instanceof GeminiUnavailableError)) throw err;
+    }
+  }
+
+  throw new GeminiUnavailableError(
+    `Os servidores do Google Gemini estão sobrecarregados no momento (tentamos ${tried.join(', ')}). ` +
+      'Isso é temporário e não é problema da sua chave: tente novamente em alguns minutos.',
+    tried
+  );
+}
+
 export async function generateAdvisorAdvice(
   config: AIConfig,
   prompt: string,
@@ -90,10 +206,8 @@ export async function generateAdvisorAdvice(
       model = 'gemini-3.1-pro-preview';
     }
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-
     // Monta histórico de turnos para o Gemini
-    const contents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
+    const contents: GeminiContent[] = [];
 
     // Inclui últimas 4 mensagens de histórico prévio para manter continuidade
     const recentHistory = conversationHistory.slice(-4);
@@ -108,48 +222,8 @@ export async function generateAdvisorAdvice(
     // Adiciona o prompt contextual atual
     contents.push({ role: 'user', parts: [{ text: prompt }] });
 
-    const body = {
-      contents,
-      generationConfig: {
-        temperature: 0.4,
-        maxOutputTokens: 1000,
-      },
-    };
-
-    const res = await fetchFn(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-      body: JSON.stringify(body),
-    });
-
-    if (!res.ok) {
-      const errJson = await res.json().catch(() => ({}));
-      const errMsg = errJson?.error?.message || `Erro ${res.status}: ${res.statusText}`;
-
-      if (
-        res.status === 404 ||
-        errMsg.includes('is not found for API version') ||
-        errMsg.includes('is no longer available') ||
-        errMsg.includes('is not supported for generateContent')
-      ) {
-        throw new Error(
-          `O modelo "${model}" não está acessível nesta chave Google (${errMsg}). Selecione "gemini-3.6-flash" ou clique em "Detectar modelos da minha chave" em Configurações.`
-        );
-      }
-
-      throw new Error(`Falha na API do Google Gemini: ${errMsg}`);
-    }
-
-    const data = await res.json();
-    const candidate = data.candidates?.[0];
-    const textPart = candidate?.content?.parts?.find((p: any) => Boolean(p.text));
-    const text = textPart?.text;
-
-    if (!text) {
-      throw new Error('A IA não retornou nenhuma resposta textual.');
-    }
-
-    return text.trim();
+    const { text } = await callGeminiWithFallback(apiKey, model, contents, fetchFn);
+    return text;
   }
 
   // Provedor Ollama local
@@ -209,12 +283,36 @@ export async function testAIConnection(
 }> {
   try {
     const testPrompt = 'Responda apenas com a palavra OK.';
+    const apiKey = config.apiKey?.trim();
+    if (config.provider === 'gemini' && apiKey) {
+      const requested = (config.model || 'gemini-3.6-flash').replace(/^models\//, '').trim();
+      const { text, model } = await callGeminiWithFallback(
+        apiKey,
+        requested,
+        [{ role: 'user', parts: [{ text: testPrompt }] }],
+        fetchFn || (typeof window !== 'undefined' ? window.fetch.bind(window) : fetch)
+      );
+      if (model !== requested) {
+        return {
+          success: true,
+          message: `Sua chave funciona! O modelo "${requested}" está sobrecarregado agora, e a resposta veio do "${model}". O app usa modelos reservas automaticamente quando isso acontece.`,
+          suggestedModel: model,
+        };
+      }
+      return { success: true, message: `Conexão bem-sucedida! Resposta recebida da IA: "${text.slice(0, 50)}"` };
+    }
+
     const reply = await generateAdvisorAdvice(config, testPrompt, fetchFn);
     return {
       success: true,
       message: `Conexão bem-sucedida! Resposta recebida da IA: "${reply.slice(0, 50)}"`,
     };
   } catch (err: any) {
+    // Sobrecarga temporária do Google: a chave e o modelo estão certos
+    if (err instanceof GeminiUnavailableError) {
+      return { success: false, message: err.message };
+    }
+
     // Diagnóstico inteligente se a requisição do Gemini falhar por modelo inexistente/descontinuado
     if (config.provider === 'gemini' && config.apiKey?.trim()) {
       try {
