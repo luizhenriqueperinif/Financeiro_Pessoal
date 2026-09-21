@@ -286,6 +286,19 @@ class ApiClient implements IElectronAPI {
     return target;
   }
 
+  async markTransactionUnpaid(id: string): Promise<Transaction> {
+    if (this.hasElectron) return window.api!.markTransactionUnpaid(id);
+    const stored = localStorage.getItem('fp_transactions');
+    const txs: Transaction[] = stored ? JSON.parse(stored) : [];
+    const target = txs.find((t) => t.id === id);
+    if (!target) throw new Error('Transação não encontrada');
+    target.status = target.date < DateUtils.today() ? 'OVERDUE' : 'PENDING';
+    target.paymentDate = null;
+    target.updatedAt = new Date().toISOString();
+    localStorage.setItem('fp_transactions', JSON.stringify(txs));
+    return target;
+  }
+
   async listRecurringRules(activeOnly?: boolean): Promise<RecurringRule[]> {
     if (this.hasElectron) return window.api!.listRecurringRules(activeOnly);
     const stored = localStorage.getItem('fp_recurring');
@@ -667,6 +680,17 @@ class ApiClient implements IElectronAPI {
       skippedCount: 0,
       transactions: created,
     };
+  }
+
+  async clearAllData(includeCategories: boolean = false): Promise<boolean> {
+    if (this.hasElectron) return window.api!.clearAllData(includeCategories);
+    localStorage.removeItem('fp_transactions');
+    localStorage.removeItem('fp_recurring');
+    localStorage.removeItem('fp_installments');
+    if (includeCategories) {
+      localStorage.removeItem('fp_categories');
+    }
+    return true;
   }
 }
 

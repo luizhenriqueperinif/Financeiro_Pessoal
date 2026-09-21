@@ -21,6 +21,7 @@ export interface IElectronAPI {
   updateTransaction(id: string, dto: UpdateTransactionDTO): Promise<Transaction>;
   deleteTransaction(id: string): Promise<boolean>;
   markTransactionPaid(id: string, paymentDate?: string): Promise<Transaction>;
+  markTransactionUnpaid(id: string): Promise<Transaction>;
 
   // Despesas Fixas
   listRecurringRules(activeOnly?: boolean): Promise<RecurringRule[]>;
@@ -49,6 +50,8 @@ export interface IElectronAPI {
   parseStatement(fileContent: string, fileName?: string): Promise<import('../../core/domain/statement.js').BankStatementParseResult>;
   reconcilePreview(items: import('../../core/domain/statement.js').BankStatementItem[]): Promise<import('../../core/domain/statement.js').ReconciliationPreviewItem[]>;
   reconcileCommit(items: import('../../core/domain/statement.js').ConfirmedStatementItem[]): Promise<import('../../core/domain/statement.js').ReconciliationResult>;
+  // Limpeza de Dados
+  clearAllData(includeCategories?: boolean): Promise<boolean>;
 }
 
 declare global {

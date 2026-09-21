@@ -39,6 +39,7 @@ export interface ITransactionRepository {
   update(id: string, data: UpdateTransactionDTO): Transaction | null;
   delete(id: string): boolean;
   markAsPaid(id: string, paymentDate?: string): Transaction | null;
+  markAsUnpaid(id: string): Transaction | null;
   /** period: YYYY-MM (qualquer dia do mês) ou YYYY-MM-DD (data exata). */
   findByRecurringInstance(ruleId: string, period: string): Transaction | null;
 }

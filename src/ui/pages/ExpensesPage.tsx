@@ -3,6 +3,7 @@ import {
   Plus,
   Search,
   CheckCircle2,
+  XCircle,
   Trash2,
   ArrowDownCircle,
   CreditCard,
@@ -61,6 +62,15 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
       loadData();
     } catch (err) {
       alert('Erro ao marcar despesa como paga');
+    }
+  };
+
+  const handleMarkUnpaid = async (id: string) => {
+    try {
+      await api.markTransactionUnpaid(id);
+      loadData();
+    } catch (err) {
+      alert('Erro ao desmarcar despesa como paga');
     }
   };
 
@@ -281,6 +291,16 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
                             >
                               <CheckCircle2 className="w-3.5 h-3.5" />
                               Pagar
+                            </button>
+                          )}
+                          {isPaid && (
+                            <button
+                              onClick={() => handleMarkUnpaid(item.id)}
+                              className="px-2.5 py-1 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 rounded-lg text-xs font-bold border border-amber-500/30 flex items-center gap-1 transition-all"
+                              title="Desmarcar como paga"
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                              Desmarcar
                             </button>
                           )}
                           <button
