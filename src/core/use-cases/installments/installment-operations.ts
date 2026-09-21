@@ -36,6 +36,28 @@ export class PayInstallmentUseCase {
   }
 }
 
+export class UnpayInstallmentUseCase {
+  constructor(private installmentRepo: IInstallmentPurchaseRepository) {}
+
+  /** Desfaz a liquidação: a parcela e seu lançamento voltam a Pendente, sem data de pagamento. */
+  execute(installmentId: string): Installment {
+    const existing = this.installmentRepo.findInstallmentById(installmentId);
+    if (!existing) {
+      throw new Error('Parcela não encontrada');
+    }
+
+    const updated = this.installmentRepo.updateInstallment(installmentId, {
+      status: 'PENDING',
+      paymentDate: null,
+    });
+
+    if (!updated) {
+      throw new Error('Erro ao desfazer pagamento da parcela');
+    }
+    return updated;
+  }
+}
+
 export class UpdateInstallmentUseCase {
   constructor(private installmentRepo: IInstallmentPurchaseRepository) {}
 

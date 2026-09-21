@@ -26,6 +26,7 @@ const api: IElectronAPI = {
   listInstallmentPurchases: () => ipcRenderer.invoke('installments:list'),
   createInstallmentPurchase: (dto) => ipcRenderer.invoke('installments:create', dto),
   payInstallment: (id, paymentDate) => ipcRenderer.invoke('installments:pay', id, paymentDate),
+  unpayInstallment: (id) => ipcRenderer.invoke('installments:unpay', id),
   updateInstallment: (id, dto) => ipcRenderer.invoke('installments:update', id, dto),
   deleteInstallmentPurchase: (id) => ipcRenderer.invoke('installments:delete', id),
 

@@ -14,6 +14,14 @@ _Avoid_: Ganho, crédito avulso, provento
 Saída financeira prevista ou realizada do patrimônio do usuário.
 _Avoid_: Gasto, débito avulso, conta
 
+**Lançamento**:
+Registro individual de uma Receita ou de uma Despesa, com valor, data de vencimento e status próprios. Uma Parcela gera um Lançamento de Despesa.
+_Avoid_: Conta, movimentação, transação (fora do código)
+
+**Liquidação**:
+Ato de marcar um Lançamento como Pago (Despesa) ou Recebido (Receita), registrando a data de pagamento. Desfazer a Liquidação devolve o Lançamento a Pendente e apaga a data de pagamento; se o vencimento já passou, ele volta a aparecer como Atrasado.
+_Avoid_: Baixa, quitação
+
 **Saldo Atual**:
 Soma líquida de todas as receitas recebidas subtraída de todas as despesas efetivamente pagas até o momento.
 _Avoid_: Saldo contábil, saldo previsto
@@ -37,6 +45,14 @@ _Avoid_: Grupo, tag, rótulo
 **Despesa Fixa**:
 Regra de despesa contínua que se repete periodicamente segundo uma frequência definida e gera lançamentos financeiros periódicos.
 _Avoid_: Despesa recorrente, assinatura genérica
+
+**Receita Fixa**:
+Regra de receita contínua que se repete periodicamente segundo uma frequência definida e gera lançamentos de receita periódicos (ex.: salário).
+_Avoid_: Receita recorrente, renda fixa
+
+**Origem do Lançamento**:
+De onde um Lançamento veio: Avulso (cadastrado manualmente ou importado de extrato), gerado por uma Despesa Fixa ou Receita Fixa, ou gerado por uma Parcela.
+_Avoid_: Tipo de lançamento, fonte
 
 **Compra Parcelada**:
 Operação de compra cujo montante total é fracionado em múltiplas obrigações periódicas vinculadas.

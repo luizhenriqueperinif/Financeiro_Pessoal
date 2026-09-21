@@ -402,6 +402,24 @@ class ApiClient implements IElectronAPI {
     return foundInst;
   }
 
+  async unpayInstallment(id: string): Promise<Installment> {
+    if (this.hasElectron) return window.api!.unpayInstallment(id);
+    const purchases = await this.listInstallmentPurchases();
+    let foundInst: Installment | null = null;
+    for (const p of purchases) {
+      const inst = p.installments?.find((i) => i.id === id);
+      if (inst) {
+        inst.status = inst.dueDate < DateUtils.today() ? 'OVERDUE' : 'PENDING';
+        inst.paymentDate = null;
+        foundInst = inst;
+        break;
+      }
+    }
+    if (!foundInst) throw new Error('Parcela não encontrada');
+    localStorage.setItem('fp_installments', JSON.stringify(purchases));
+    return foundInst;
+  }
+
   async updateInstallment(id: string, dto: UpdateInstallmentDTO): Promise<Installment> {
     if (this.hasElectron) return window.api!.updateInstallment(id, dto);
     const purchases = await this.listInstallmentPurchases();

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { AppDatabase } from '../../src/infra/database/connection.js';
 import { SqliteCategoryRepository } from '../../src/infra/repositories/sqlite-category-repository.js';
 import { SqliteTransactionRepository } from '../../src/infra/repositories/sqlite-transaction-repository.js';
+import { SqliteRecurringRuleRepository } from '../../src/infra/repositories/sqlite-recurring-rule-repository.js';
 import {
   CreateTransactionUseCase,
   ListTransactionsUseCase,
@@ -180,5 +181,53 @@ describe('Transaction Use Cases (Receitas e Despesas)', () => {
 
     const adiada = updateTx.execute(tx.id, { date: '2026-09-30' });
     expect(adiada.status).toBe('PENDING');
+  });
+
+  describe('filtros de busca', () => {
+    const seed = () => {
+      const moradia = categoryRepo.findByName('Moradia')!;
+      const base = { type: 'EXPENSE' as const, categoryId: moradia.id, paymentMethod: 'PIX' as const, status: 'PAID' as const };
+      createTx.execute({ ...base, description: 'Barata', amountCents: 5000, date: '2026-09-03' });
+      createTx.execute({ ...base, description: 'Média', amountCents: 15000, date: '2026-09-01' });
+      createTx.execute({ ...base, description: 'Cara', amountCents: 20000, date: '2026-09-02' });
+    };
+
+    it('filtra por faixa de valor com os limites incluídos', () => {
+      seed();
+      const result = listTx.execute({ yearMonth: '2026-09', minAmountCents: 15000, maxAmountCents: 20000 });
+      expect(result.map((t) => t.description).sort()).toEqual(['Cara', 'Média']);
+    });
+
+    it('filtra pela origem do lançamento', () => {
+      seed();
+      const moradia = categoryRepo.findByName('Moradia')!;
+      const rule = new SqliteRecurringRuleRepository(appDb.getRawDb()).create({
+        description: 'Aluguel', amountCents: 100000, type: 'EXPENSE', categoryId: moradia.id,
+        frequency: 'MONTHLY', dueDay: 10, startDate: '2026-01-01', paymentMethod: 'PIX',
+      });
+      transactionRepo.create({
+        description: 'Aluguel Setembro', amountCents: 100000, type: 'EXPENSE', categoryId: moradia.id,
+        date: '2026-09-10', paymentMethod: 'PIX', status: 'PENDING', recurringRuleId: rule.id,
+      });
+
+      expect(listTx.execute({ yearMonth: '2026-09', origin: 'RECURRING' }).map((t) => t.description)).toEqual(['Aluguel Setembro']);
+      expect(listTx.execute({ yearMonth: '2026-09', origin: 'MANUAL' })).toHaveLength(3);
+    });
+
+    it('ordena por data, valor ou descrição', () => {
+      seed();
+      const nomes = (sortBy: any) => listTx.execute({ yearMonth: '2026-09', sortBy }).map((t) => t.description);
+      expect(nomes(undefined)).toEqual(['Barata', 'Cara', 'Média']);
+      expect(nomes('DATE_ASC')).toEqual(['Média', 'Cara', 'Barata']);
+      expect(nomes('AMOUNT_DESC')).toEqual(['Cara', 'Média', 'Barata']);
+      expect(nomes('AMOUNT_ASC')).toEqual(['Barata', 'Média', 'Cara']);
+      expect(nomes('DESCRIPTION')).toEqual(['Barata', 'Cara', 'Média']);
+    });
+
+    it('período personalizado prevalece sobre o mês selecionado', () => {
+      seed();
+      const result = listTx.execute({ yearMonth: '2026-10', startDate: '2026-09-02', endDate: '2026-09-03' });
+      expect(result.map((t) => t.description)).toEqual(['Barata', 'Cara']);
+    });
   });
 });
