@@ -21,9 +21,26 @@ export class AppDatabase {
 
     // Cria as tabelas e índices
     this.db.exec(CREATE_TABLES_SQL);
+    this.migrate();
 
     // Seed inicial de categorias padrão caso a tabela esteja vazia
     this.seedDefaultCategories();
+  }
+
+  /** Ajustes em bancos criados antes de colunas novas existirem. */
+  private migrate(): void {
+    const purchaseColumns = this.db
+      .prepare('PRAGMA table_info(installment_purchases)')
+      .all() as Array<{ name: string }>;
+    if (!purchaseColumns.some((c) => c.name === 'card_name')) {
+      this.db.transaction(() => {
+        this.db.exec('ALTER TABLE installment_purchases ADD COLUMN card_name TEXT');
+        // Compras no crédito já cadastradas usavam o nome do cartão como descrição
+        this.db.exec(
+          "UPDATE installment_purchases SET card_name = description WHERE payment_method = 'CREDIT'"
+        );
+      })();
+    }
   }
 
   private seedDefaultCategories(): void {

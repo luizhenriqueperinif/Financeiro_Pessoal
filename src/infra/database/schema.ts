@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS installment_purchases (
   first_due_date TEXT NOT NULL,
   category_id TEXT NOT NULL REFERENCES categories(id) ON DELETE RESTRICT,
   payment_method TEXT NOT NULL DEFAULT 'CREDIT',
+  card_name TEXT,
   notes TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL

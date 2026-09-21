@@ -1,7 +1,7 @@
 import { Category, CreateCategoryDTO, UpdateCategoryDTO } from '../../core/domain/category.js';
 import { Transaction, CreateTransactionDTO, UpdateTransactionDTO, TransactionFilters } from '../../core/domain/transaction.js';
 import { RecurringRule, CreateRecurringRuleDTO, UpdateRecurringRuleDTO } from '../../core/domain/recurring-rule.js';
-import { InstallmentPurchase, Installment, CreateInstallmentPurchaseDTO, UpdateInstallmentDTO } from '../../core/domain/installment-purchase.js';
+import { InstallmentPurchase, Installment, CreateInstallmentPurchaseDTO, UpdateInstallmentDTO, CardSummary } from '../../core/domain/installment-purchase.js';
 import { DashboardMetrics } from '../../core/domain/dashboard.js';
 import { CalendarMonthData } from '../../core/domain/calendar.js';
 import { FinancialReportsResult } from '../../core/domain/reports.js';
@@ -31,6 +31,7 @@ export interface IElectronAPI {
 
   // Compras Parceladas
   listInstallmentPurchases(): Promise<InstallmentPurchase[]>;
+  getCardSummaries(): Promise<CardSummary[]>;
   createInstallmentPurchase(dto: CreateInstallmentPurchaseDTO): Promise<InstallmentPurchase>;
   payInstallment(id: string, paymentDate?: string): Promise<Installment>;
   unpayInstallment(id: string): Promise<Installment>;

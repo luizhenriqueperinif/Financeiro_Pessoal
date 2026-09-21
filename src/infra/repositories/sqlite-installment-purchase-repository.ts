@@ -21,6 +21,7 @@ interface PurchaseRow {
   category_color: string | null;
   category_icon: string | null;
   payment_method: PaymentMethod;
+  card_name: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -60,6 +61,7 @@ export class SqliteInstallmentPurchaseRepository
       categoryColor: row.category_color || undefined,
       categoryIcon: row.category_icon || undefined,
       paymentMethod: row.payment_method,
+      cardName: row.card_name,
       notes: row.notes,
       installments,
       createdAt: row.created_at,
@@ -99,9 +101,9 @@ export class SqliteInstallmentPurchaseRepository
     const insertPurchase = this.db.prepare(`
       INSERT INTO installment_purchases (
         id, description, total_amount_cents, total_installments,
-        first_due_date, category_id, payment_method, notes, created_at, updated_at
+        first_due_date, category_id, payment_method, card_name, notes, created_at, updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const insertInstallment = this.db.prepare(`
@@ -133,6 +135,7 @@ export class SqliteInstallmentPurchaseRepository
         data.firstDueDate,
         data.categoryId,
         data.paymentMethod || 'CREDIT',
+        data.cardName?.trim() || null,
         data.notes?.trim() || null,
         now,
         now

@@ -1,4 +1,4 @@
-export type AIProvider = 'gemini' | 'ollama';
+export type AIProvider = 'groq' | 'gemini' | 'ollama';
 
 export interface AIConfig {
   provider: AIProvider;
@@ -14,11 +14,14 @@ export interface ChatMessage {
   timestamp: string;
 }
 
+export const GROQ_BASE_URL = 'https://api.groq.com/openai/v1';
+export const GROQ_DEFAULT_MODEL = 'openai/gpt-oss-120b';
+
 export function getDefaultAIConfig(): AIConfig {
   return {
-    provider: 'gemini',
+    provider: 'groq',
     apiKey: '',
-    model: 'gemini-3.6-flash',
+    model: GROQ_DEFAULT_MODEL,
     customEndpoint: 'http://localhost:11434/v1',
   };
 }
@@ -226,15 +229,7 @@ export async function generateAdvisorAdvice(
     return text;
   }
 
-  // Provedor Ollama local
-  const baseUrl = (config.customEndpoint?.trim() || 'http://localhost:11434/v1').replace(/\/+$/, '');
-  const url = `${baseUrl}/chat/completions`;
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (config.apiKey?.trim()) {
-    headers['Authorization'] = `Bearer ${config.apiKey.trim()}`;
-  }
-
-  const messages: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+  const messages: ChatCompletionMessage[] = [];
   const recentHistory = conversationHistory.slice(-4);
   for (const msg of recentHistory) {
     if (msg.role === 'user' || msg.role === 'assistant') {
@@ -243,14 +238,59 @@ export async function generateAdvisorAdvice(
   }
   messages.push({ role: 'user', content: prompt });
 
-  const body = {
+  if (config.provider === 'groq') {
+    const apiKey = config.apiKey?.trim();
+    if (!apiKey) {
+      throw new Error(
+        'Chave de API do Groq não configurada. Crie sua chave gratuita em console.groq.com (menu API Keys) e salve em Configurações.'
+      );
+    }
+    return callChatCompletions({
+      baseUrl: GROQ_BASE_URL,
+      apiKey,
+      model: config.model || GROQ_DEFAULT_MODEL,
+      messages,
+      providerLabel: 'Groq',
+      fetchFn,
+    });
+  }
+
+  // Provedor Ollama local
+  return callChatCompletions({
+    baseUrl: (config.customEndpoint?.trim() || 'http://localhost:11434/v1').replace(/\/+$/, ''),
+    apiKey: config.apiKey?.trim(),
     model: config.model || 'llama3.2',
     messages,
+    providerLabel: 'modelo local Ollama',
+    fetchFn,
+  });
+}
+
+type ChatCompletionMessage = { role: 'user' | 'assistant'; content: string };
+
+/** Cliente para APIs no formato OpenAI /chat/completions (Groq, Ollama). */
+async function callChatCompletions(opts: {
+  baseUrl: string;
+  apiKey?: string;
+  model: string;
+  messages: ChatCompletionMessage[];
+  providerLabel: string;
+  fetchFn: typeof fetch;
+}): Promise<string> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (opts.apiKey) {
+    headers['Authorization'] = `Bearer ${opts.apiKey}`;
+  }
+
+  const body = {
+    model: opts.model,
+    messages: opts.messages,
     temperature: 0.4,
-    max_tokens: 1000,
+    // Modelos de raciocínio (ex.: GPT-OSS) gastam parte do limite pensando
+    max_tokens: 4096,
   };
 
-  const res = await fetchFn(url, {
+  const res = await opts.fetchFn(`${opts.baseUrl}/chat/completions`, {
     method: 'POST',
     headers,
     body: JSON.stringify(body),
@@ -259,14 +299,22 @@ export async function generateAdvisorAdvice(
   if (!res.ok) {
     const errJson = await res.json().catch(() => ({}));
     const errMsg = errJson?.error?.message || `Erro ${res.status}: ${res.statusText}`;
-    throw new Error(`Falha ao conectar com o modelo local Ollama: ${errMsg}`);
+    if (res.status === 401) {
+      throw new Error(`A chave do ${opts.providerLabel} foi recusada. Confira se copiou a chave inteira em Configurações.`);
+    }
+    if (res.status === 429) {
+      throw new Error(
+        `Você atingiu o limite gratuito de uso do ${opts.providerLabel} por agora. Aguarde um minuto e tente novamente. (${errMsg})`
+      );
+    }
+    throw new Error(`Falha ao conectar com o ${opts.providerLabel}: ${errMsg}`);
   }
 
   const data = await res.json();
   const text = data.choices?.[0]?.message?.content;
 
   if (!text) {
-    throw new Error('O modelo local Ollama não retornou nenhuma resposta.');
+    throw new Error(`O ${opts.providerLabel} não retornou nenhuma resposta.`);
   }
 
   return text.trim();

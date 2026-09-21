@@ -59,7 +59,7 @@ export const AdvisorPage: React.FC<AdvisorPageProps> = ({
 
   const aiConfig = loadStoredAIConfig();
   const isConfigured =
-    aiConfig.provider === 'ollama' || (aiConfig.provider === 'gemini' && Boolean(aiConfig.apiKey?.trim()));
+    aiConfig.provider === 'ollama' || Boolean(aiConfig.apiKey?.trim());
 
   useEffect(() => {
     const loadMetrics = async () => {
@@ -217,7 +217,7 @@ export const AdvisorPage: React.FC<AdvisorPageProps> = ({
                 Conselheiro Financeiro IA
               </h2>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 uppercase tracking-wider">
-                {aiConfig.provider === 'gemini' ? 'Gemini Free' : 'Ollama Local'}
+                {aiConfig.provider === 'groq' ? 'Groq Free' : aiConfig.provider === 'gemini' ? 'Gemini Free' : 'Ollama Local'}
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -250,7 +250,7 @@ export const AdvisorPage: React.FC<AdvisorPageProps> = ({
           <div className="flex items-center gap-2.5 text-amber-800 dark:text-amber-300">
             <ShieldAlert className="w-5 h-5 text-amber-500 shrink-0" />
             <span>
-              Para começar a pedir conselhos, configure sua chave gratuita do Google Gemini em Configurações. É rápido e sem custos!
+              Para começar a pedir conselhos, configure sua chave gratuita do Groq (ou Gemini) em Configurações. É rápido e sem custos!
             </span>
           </div>
           <button

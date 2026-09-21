@@ -8,7 +8,8 @@ import {
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
-import { InstallmentPurchase } from '../../core/domain/installment-purchase.js';
+import { InstallmentPurchase, CardSummary } from '../../core/domain/installment-purchase.js';
+import { CardSummaryList } from '../components/CardSummaryList.js';
 import { formatMoney, formatDate } from '../utils/formatters.js';
 import { api } from '../services/api.js';
 
@@ -21,13 +22,16 @@ export const InstallmentsPage: React.FC<InstallmentsPageProps> = ({
 }) => {
   const [purchases, setPurchases] = useState<InstallmentPurchase[]>([]);
   const [expandedPurchaseId, setExpandedPurchaseId] = useState<string | null>(null);
+  const [view, setView] = useState<'purchases' | 'cards'>('purchases');
+  const [cards, setCards] = useState<CardSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const res = await api.listInstallmentPurchases();
+      const [res, cardTotals] = await Promise.all([api.listInstallmentPurchases(), api.getCardSummaries()]);
       setPurchases(res);
+      setCards(cardTotals);
       if (res.length > 0 && !expandedPurchaseId) {
         setExpandedPurchaseId(res[0].id);
       }
@@ -122,8 +126,31 @@ export const InstallmentsPage: React.FC<InstallmentsPageProps> = ({
         </div>
       </div>
 
+      {/* Alternância entre visão por compra e por cartão */}
+      <div className="inline-flex p-1 rounded-xl bg-slate-100 dark:bg-slate-800/70 text-xs font-bold">
+        {([
+          ['purchases', 'Por compra'],
+          ['cards', 'Por cartão'],
+        ] as const).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setView(key)}
+            className={`px-4 py-1.5 rounded-lg transition-all ${
+              view === key
+                ? 'bg-white dark:bg-slate-900 text-purple-600 dark:text-purple-400 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {view === 'cards' && !loading && <CardSummaryList cards={cards} />}
+
       {/* Lista de Compras Parceladas */}
-      <div className="space-y-4">
+      <div className={`space-y-4 ${view === 'cards' ? 'hidden' : ''}`}>
         {loading ? (
           <div className="p-8 text-center text-xs text-slate-400">Carregando parcelamentos...</div>
         ) : purchases.length === 0 ? (
@@ -165,6 +192,12 @@ export const InstallmentsPage: React.FC<InstallmentsPageProps> = ({
                       <span className="text-xs font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 rounded-full">
                         {purchase.totalInstallments}x de {formatMoney(installments[0]?.amountCents || 0)}
                       </span>
+                      {purchase.cardName && purchase.cardName !== purchase.description && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
+                          <CreditCard className="w-3 h-3" />
+                          {purchase.cardName}
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-3 text-xs text-slate-500">
                       <span>Total: <strong className="text-slate-700 dark:text-slate-300">{formatMoney(purchase.totalAmountCents)}</strong></span>

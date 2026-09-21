@@ -9,6 +9,7 @@ import {
   PayInstallmentUseCase,
   UpdateInstallmentUseCase,
   UnpayInstallmentUseCase,
+  GetCardSummariesUseCase,
   DeleteInstallmentPurchaseUseCase,
 } from '../../src/core/use-cases/installments/index.js';
 
@@ -168,5 +169,34 @@ describe('Installment Purchases Use Cases (Compras Parceladas)', () => {
     const lancamento = transactionRepo.findById(futura.transactionId!)!;
     expect(lancamento.status).toBe('PENDING');
     expect(lancamento.paymentDate).toBeNull();
+  });
+
+  it('resume o total de cada cartão somando as parcelas de todas as compras, mês a mês', () => {
+    const outras = categoryRepo.findByName('Outras Despesas')!;
+    const cardSummaries = new GetCardSummariesUseCase(installmentRepo);
+    const base = { categoryId: outras.id, paymentMethod: 'CREDIT' as const };
+    // Nu CPF: 60 + 60 em out/nov (compra A) e 30 x 3 de out a dez (compra B)
+    createPurchase.execute({ ...base, description: 'Fone', cardName: 'Nu CPF', totalAmountCents: 12000, totalInstallments: 2, firstDueDate: '2026-10-10' });
+    createPurchase.execute({ ...base, description: 'Tênis', cardName: 'nu cpf ', totalAmountCents: 9000, totalInstallments: 3, firstDueDate: '2026-10-10' });
+    createPurchase.execute({ ...base, description: 'Mercado', cardName: 'Joyce', totalAmountCents: 20000, totalInstallments: 2, firstDueDate: '2026-10-15' });
+    createPurchase.execute({ ...base, description: 'Sem cartão', totalAmountCents: 5000, totalInstallments: 2, firstDueDate: '2026-10-01' });
+
+    const compraFone = listPurchases.execute().find((p) => p.description === 'Fone')!;
+    payInstallment.execute(compraFone.installments![0].id, '2026-10-10');
+
+    const resumo = cardSummaries.execute();
+
+    // Ordenado pelo que ainda falta pagar (maior primeiro)
+    expect(resumo.map((c) => c.cardName)).toEqual(['Joyce', 'Nu CPF']);
+    const nuCpf = resumo[1];
+    expect(nuCpf.purchaseCount).toBe(2);
+    expect(nuCpf.totalCents).toBe(21000);
+    expect(nuCpf.remainingCents).toBe(15000);
+    expect(nuCpf.months).toEqual([
+      { yearMonth: '2026-10', amountCents: 9000, remainingCents: 3000 },
+      { yearMonth: '2026-11', amountCents: 9000, remainingCents: 9000 },
+      { yearMonth: '2026-12', amountCents: 3000, remainingCents: 3000 },
+    ]);
+    expect(resumo[0].totalCents).toBe(20000);
   });
 });

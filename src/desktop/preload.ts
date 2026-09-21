@@ -24,6 +24,7 @@ const api: IElectronAPI = {
 
   // Compras Parceladas
   listInstallmentPurchases: () => ipcRenderer.invoke('installments:list'),
+  getCardSummaries: () => ipcRenderer.invoke('installments:cardSummaries'),
   createInstallmentPurchase: (dto) => ipcRenderer.invoke('installments:create', dto),
   payInstallment: (id, paymentDate) => ipcRenderer.invoke('installments:pay', id, paymentDate),
   unpayInstallment: (id) => ipcRenderer.invoke('installments:unpay', id),
