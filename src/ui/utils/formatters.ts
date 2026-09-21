@@ -20,3 +20,31 @@ export function getMonthName(yearMonth: string): string {
   ];
   return `${months[monthIdx]} de ${yearStr}`;
 }
+
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  PIX: 'PIX',
+  CREDIT: 'Crédito',
+  DEBIT: 'Débito',
+  BOLETO: 'Boleto',
+  MONEY: 'Dinheiro',
+  OTHER: 'Outro',
+};
+
+/** Nome da forma de pagamento para exibir (o banco guarda o código, ex.: "DEBIT"). */
+export function paymentMethodLabel(method: string): string {
+  return PAYMENT_METHOD_LABELS[method] ?? method;
+}
+
+/** Valor em reais (número) no padrão brasileiro, para gráficos: 1234.5 → "R$ 1.234,50". */
+export function formatReais(value: number | string): string {
+  return formatMoney(Math.round(Number(value) * 100));
+}
+
+/** Rótulo curto do eixo dos gráficos: 2500 → "R$ 2,5 mil". */
+export function formatAxisReais(value: number): string {
+  if (Math.abs(value) >= 1000) {
+    return `R$ ${(value / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mil`;
+  }
+  return `R$ ${value.toLocaleString('pt-BR')}`;
+}
+

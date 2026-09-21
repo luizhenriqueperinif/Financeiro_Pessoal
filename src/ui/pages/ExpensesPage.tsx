@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { Transaction } from '../../core/domain/transaction.js';
 import { Category } from '../../core/domain/category.js';
-import { formatMoney, formatDate } from '../utils/formatters.js';
+import { formatMoney, formatDate, paymentMethodLabel } from '../utils/formatters.js';
 import { api } from '../services/api.js';
 import { VoiceExpenseModal } from '../components/VoiceExpenseModal.js';
 import {
@@ -27,6 +27,8 @@ interface ExpensesPageProps {
   refreshKey?: number;
   /** Lançamento recém-criado, destacado por alguns segundos. */
   highlightId?: string | null;
+  /** Chamado após pagar, receber, excluir etc., para o App atualizar o saldo. */
+  onDataChanged?: () => void;
   onOpenNewExpense: () => void;
   categories: Category[];
 }
@@ -35,6 +37,7 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
   selectedYearMonth,
   refreshKey,
   highlightId,
+  onDataChanged,
   onOpenNewExpense,
   categories,
 }) => {
@@ -43,6 +46,12 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Recarrega a página e avisa o App (saldo da barra lateral)
+  const refresh = () => {
+    loadData();
+    onDataChanged?.();
+  };
 
   const loadData = async () => {
     try {
@@ -63,7 +72,7 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
   const handleMarkPaid = async (id: string) => {
     try {
       await api.markTransactionPaid(id);
-      loadData();
+      refresh();
     } catch (err) {
       alert('Erro ao marcar despesa como paga');
     }
@@ -74,7 +83,7 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
     if (!confirm(`Desmarcar o pagamento de "${item.description}"${paidOn}?`)) return;
     try {
       await api.markTransactionUnpaid(item.id);
-      loadData();
+      refresh();
     } catch (err) {
       alert('Erro ao desmarcar despesa como paga');
     }
@@ -84,9 +93,9 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
     if (confirm(`Tem certeza que deseja excluir a despesa "${description}"?`)) {
       try {
         await api.deleteTransaction(id);
-        loadData();
-      } catch (err) {
-        alert('Erro ao excluir despesa');
+        refresh();
+      } catch (err: any) {
+        alert(err?.message || 'Erro ao excluir despesa');
       }
     }
   };
@@ -143,7 +152,7 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
         categories={categories}
         onSuccess={(msg) => {
           setNotice(msg);
-          loadData();
+          refresh();
         }}
       />
 
@@ -246,7 +255,7 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
                           {item.categoryName}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-slate-500">{item.paymentMethod}</td>
+                      <td className="py-3 px-4 text-slate-500">{paymentMethodLabel(item.paymentMethod)}</td>
                       <td className="py-3 px-4 text-right font-bold text-rose-600 dark:text-rose-400 text-sm">
                         -{formatMoney(item.amountCents)}
                       </td>

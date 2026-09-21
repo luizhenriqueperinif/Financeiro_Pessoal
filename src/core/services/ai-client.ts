@@ -80,6 +80,9 @@ export const GEMINI_FALLBACK_MODELS = [
 const GEMINI_MAX_ATTEMPTS = 3;
 const GEMINI_TIMEOUT_MS = 30_000;
 
+/** O modelo não existe ou não está liberado para esta chave. */
+class GeminiModelNotFoundError extends Error {}
+
 /** Erro temporário do lado do Google: vale tentar outro modelo ou mais tarde. */
 export class GeminiUnavailableError extends Error {
   constructor(message: string, public triedModels: string[] = []) {
@@ -134,7 +137,7 @@ async function callGemini(
       errMsg.includes('is no longer available') ||
       errMsg.includes('is not supported for generateContent')
     ) {
-      throw new Error(
+      throw new GeminiModelNotFoundError(
         `O modelo "${model}" não está acessível nesta chave Google (${errMsg}). Selecione "gemini-3.6-flash" ou clique em "Detectar modelos da minha chave" em Configurações.`
       );
     }
@@ -169,7 +172,9 @@ async function callGeminiWithFallback(
     try {
       return { text: await callGemini(apiKey, candidate, contents, fetchFn), model: candidate };
     } catch (err) {
-      if (!(err instanceof GeminiUnavailableError)) throw err;
+      // Um modelo reserva que a chave não pode usar não impede tentar o próximo
+      const skippableBackup = err instanceof GeminiModelNotFoundError && candidate !== model;
+      if (!(err instanceof GeminiUnavailableError) && !skippableBackup) throw err;
     }
   }
 

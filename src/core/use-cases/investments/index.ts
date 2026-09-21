@@ -8,8 +8,18 @@ import {
   IInvestmentRepository,
   IRecurringRuleRepository,
   ICategoryRepository,
+  ITransactionRepository,
 } from '../../domain/repositories.js';
 import { DateUtils } from '../../utils/date-utils.js';
+import { removeOpenOccurrences, syncOpenOccurrences } from '../recurring/rule-occurrences.js';
+
+/** Pausa a receita e tira das Receitas os rendimentos futuros ainda não recebidos. */
+function stopIncomeRule(ruleId: string, recurringRepo: IRecurringRuleRepository, transactionRepo?: ITransactionRepository): void {
+  const rule = recurringRepo.findById(ruleId);
+  if (!rule) return;
+  if (rule.isActive) recurringRepo.update(ruleId, { isActive: false });
+  removeOpenOccurrences(ruleId, DateUtils.today(), transactionRepo);
+}
 
 /**
  * Mantém a Receita Fixa do rendimento em sincronia com o investimento:
@@ -20,22 +30,30 @@ function syncIncomeRule(
   repo: IInvestmentRepository,
   recurringRepo?: IRecurringRuleRepository,
   categoryRepo?: ICategoryRepository,
-  linkRuleId?: string | null
+  options: { linkRuleId?: string | null; createNew?: boolean } = {},
+  transactionRepo?: ITransactionRepository
 ): Investment {
   if (!recurringRepo) return inv;
   const netCents = inv.monthlyYieldCents - inv.monthlyCommitmentCents;
   const wantsIncome = inv.generatesIncome && netCents > 0;
-  const currentRule =
-    (linkRuleId && recurringRepo.findById(linkRuleId)) || (inv.recurringRuleId && recurringRepo.findById(inv.recurringRuleId)) || null;
+  const previous = inv.recurringRuleId ? recurringRepo.findById(inv.recurringRuleId) : null;
 
   if (!wantsIncome) {
-    if (currentRule?.isActive) recurringRepo.update(currentRule.id, { isActive: false });
+    if (previous) stopIncomeRule(previous.id, recurringRepo, transactionRepo);
     return inv;
   }
 
-  if (currentRule) {
-    recurringRepo.update(currentRule.id, { amountCents: netCents, dueDay: inv.incomeDueDay, isActive: true });
-    if (currentRule.id !== inv.recurringRuleId) repo.setRecurringRule(inv.id, currentRule.id);
+  // Qual receita fica vinculada: a escolhida, uma nova, ou a atual
+  const linked = options.linkRuleId ? recurringRepo.findById(options.linkRuleId) : null;
+  const target = options.createNew ? null : linked ?? previous;
+  if (previous && previous.id !== target?.id) {
+    stopIncomeRule(previous.id, recurringRepo, transactionRepo);
+  }
+
+  if (target) {
+    const updated = recurringRepo.update(target.id, { amountCents: netCents, dueDay: inv.incomeDueDay, isActive: true })!;
+    if (target.id !== inv.recurringRuleId) repo.setRecurringRule(inv.id, target.id);
+    syncOpenOccurrences(updated, transactionRepo);
   } else {
     const incomeCategories = categoryRepo?.list('INCOME') ?? [];
     const category = incomeCategories.find((c) => c.name.toLowerCase().includes('invest')) ?? incomeCategories[0];
@@ -47,10 +65,10 @@ function syncIncomeRule(
       categoryId: category.id,
       frequency: 'MONTHLY',
       dueDay: inv.incomeDueDay,
-      // Começa hoje: não cria uma ocorrência já vencida no mês atual
-      startDate: DateUtils.today(),
+      // Começa no mês atual para o rendimento deste mês já aparecer em Receitas
+      startDate: `${DateUtils.currentYearMonth()}-01`,
       paymentMethod: 'PIX',
-      notes: `Gerada pela Reserva (${inv.name})`,
+      notes: `Gerada pelo investimento ${inv.name}`,
     });
     repo.setRecurringRule(inv.id, rule.id);
   }
@@ -80,13 +98,14 @@ export class CreateInvestmentUseCase {
   constructor(
     private repo: IInvestmentRepository,
     private recurringRepo?: IRecurringRuleRepository,
-    private categoryRepo?: ICategoryRepository
+    private categoryRepo?: ICategoryRepository,
+    private transactionRepo?: ITransactionRepository
   ) {}
 
   execute(dto: CreateInvestmentDTO): Investment {
     validate({ ...dto, name: dto.name ?? '' });
     const created = this.repo.create(dto);
-    return syncIncomeRule(created, this.repo, this.recurringRepo, this.categoryRepo, dto.linkRecurringRuleId);
+    return syncIncomeRule(created, this.repo, this.recurringRepo, this.categoryRepo, { linkRuleId: dto.linkRecurringRuleId }, this.transactionRepo);
   }
 }
 
@@ -102,26 +121,38 @@ export class UpdateInvestmentUseCase {
   constructor(
     private repo: IInvestmentRepository,
     private recurringRepo?: IRecurringRuleRepository,
-    private categoryRepo?: ICategoryRepository
+    private categoryRepo?: ICategoryRepository,
+    private transactionRepo?: ITransactionRepository
   ) {}
 
   execute(id: string, dto: UpdateInvestmentDTO): Investment {
     validate(dto);
     const updated = this.repo.update(id, dto);
     if (!updated) throw new Error('Investimento não encontrado');
-    return syncIncomeRule(updated, this.repo, this.recurringRepo, this.categoryRepo, dto.linkRecurringRuleId);
+    return syncIncomeRule(
+      updated,
+      this.repo,
+      this.recurringRepo,
+      this.categoryRepo,
+      { linkRuleId: dto.linkRecurringRuleId, createNew: dto.createNewIncomeRule },
+      this.transactionRepo
+    );
   }
 }
 
 export class DeleteInvestmentUseCase {
-  constructor(private repo: IInvestmentRepository, private recurringRepo?: IRecurringRuleRepository) {}
+  constructor(
+    private repo: IInvestmentRepository,
+    private recurringRepo?: IRecurringRuleRepository,
+    private transactionRepo?: ITransactionRepository
+  ) {}
 
-  /** A Receita Fixa vinculada é pausada, não apagada, para manter os meses já lançados. */
+  /** A Receita Fixa vinculada é pausada, não apagada, para manter os meses já recebidos. */
   execute(id: string): boolean {
     const existing = this.repo.findById(id);
     if (!existing) throw new Error('Investimento não encontrado');
-    if (existing.recurringRuleId && this.recurringRepo?.findById(existing.recurringRuleId)) {
-      this.recurringRepo.update(existing.recurringRuleId, { isActive: false });
+    if (existing.recurringRuleId && this.recurringRepo) {
+      stopIncomeRule(existing.recurringRuleId, this.recurringRepo, this.transactionRepo);
     }
     return this.repo.delete(id);
   }

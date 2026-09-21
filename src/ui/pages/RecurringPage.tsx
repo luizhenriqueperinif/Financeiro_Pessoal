@@ -9,7 +9,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { RecurringRule } from '../../core/domain/recurring-rule.js';
-import { formatMoney, formatDate } from '../utils/formatters.js';
+import { formatMoney, formatDate, paymentMethodLabel } from '../utils/formatters.js';
 import { api } from '../services/api.js';
 
 interface RecurringPageProps {
@@ -134,7 +134,7 @@ export const RecurringPage: React.FC<RecurringPageProps> = ({
                   <div className="flex items-center justify-between">
                     <span>Forma de pagamento:</span>
                     <span className="font-medium text-slate-700 dark:text-slate-200">
-                      {rule.paymentMethod}
+                      {paymentMethodLabel(rule.paymentMethod)}
                     </span>
                   </div>
                 </div>

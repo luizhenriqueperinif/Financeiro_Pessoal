@@ -1,11 +1,24 @@
 import { Transaction, TransactionFilters } from '../../domain/transaction.js';
 import { ITransactionRepository } from '../../domain/repositories.js';
 
+/** Gera os lançamentos das regras fixas de um mês (ProcessRecurringInstancesUseCase). */
+interface RecurringMonthProcessor {
+  execute(yearMonth: string): unknown;
+}
+
 export class ListTransactionsUseCase {
-  constructor(private transactionRepo: ITransactionRepository) {}
+  constructor(
+    private transactionRepo: ITransactionRepository,
+    private recurringProcessor?: RecurringMonthProcessor
+  ) {}
 
   execute(filters?: TransactionFilters & { yearMonth?: string }): Transaction[] {
     const finalFilters: TransactionFilters = { ...filters };
+
+    // Receitas e Despesas mostram as fixas do mês mesmo sem passar pelo Dashboard
+    if (this.recurringProcessor && filters?.yearMonth && /^\d{4}-\d{2}$/.test(filters.yearMonth)) {
+      this.recurringProcessor.execute(filters.yearMonth);
+    }
 
     // Se o usuário passar apenas "yearMonth" no formato "2026-09", deriva startDate e endDate automaticamente
     if (filters?.yearMonth && /^\d{4}-\d{2}$/.test(filters.yearMonth)) {

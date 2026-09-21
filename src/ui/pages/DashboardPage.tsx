@@ -23,13 +23,14 @@ import {
   Cell,
 } from 'recharts';
 import { DashboardMetrics } from '../../core/domain/dashboard.js';
-import { formatMoney } from '../utils/formatters.js';
+import { formatMoney, formatReais, formatAxisReais } from '../utils/formatters.js';
 import { api } from '../services/api.js';
 import { FinancialAlertsBanner } from '../components/FinancialAlertsBanner.js';
 
 interface DashboardPageProps {
   selectedYearMonth: string;
   refreshKey?: number;
+  onDataChanged?: () => void;
   onNavigateToIncomes: () => void;
   onNavigateToExpenses: () => void;
   onNavigateToInstallments: () => void;
@@ -39,6 +40,7 @@ interface DashboardPageProps {
 export const DashboardPage: React.FC<DashboardPageProps> = ({
   selectedYearMonth,
   refreshKey,
+  onDataChanged,
   onNavigateToIncomes,
   onNavigateToExpenses,
   onNavigateToInstallments,
@@ -63,6 +65,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     try {
       await api.markTransactionPaid(transactionId);
       await loadData();
+      onDataChanged?.();
     } catch (err) {
       console.error('Erro ao marcar como pago via lembrete rápido:', err);
     }
@@ -270,11 +273,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           </div>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={historyChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <BarChart data={historyChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} tickLine={false} />
-                <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} tickFormatter={(v) => `R$${v >= 1000 ? `${v / 1000}k` : v}`} />
+                <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} tickFormatter={formatAxisReais} width={86} />
                 <Tooltip
-                  formatter={(value: any) => [`R$ ${Number(value).toFixed(2)}`, '']}
+                  formatter={(value: any, name: any) => [formatReais(value), name]}
                   contentStyle={{ backgroundColor: '#0f172a', borderRadius: '12px', border: '1px solid #334155', color: '#fff', fontSize: '12px' }}
                 />
                 <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
@@ -314,7 +317,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                     ))}
                   </Pie>
                   <Tooltip
-                    formatter={(val: any) => [`R$ ${Number(val).toFixed(2)}`, '']}
+                    formatter={(val: any, name: any) => [formatReais(val), name]}
                     contentStyle={{ backgroundColor: '#0f172a', borderRadius: '8px', border: 'none', color: '#fff', fontSize: '11px' }}
                   />
                 </PieChart>

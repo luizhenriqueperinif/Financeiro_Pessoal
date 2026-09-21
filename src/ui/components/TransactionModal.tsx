@@ -4,6 +4,8 @@ import { Category } from '../../core/domain/category.js';
 import { PaymentMethod, TransactionType } from '../../core/types/common.js';
 import { Money } from '../../core/value-objects/money.js';
 import { api } from '../services/api.js';
+import { MoneyInput } from './MoneyInput.js';
+import { paymentMethodLabel } from '../utils/formatters.js';
 import { DateUtils } from '../../core/utils/date-utils.js';
 
 interface TransactionModalProps {
@@ -205,14 +207,14 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
           {/* Valor */}
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
-              {type === 'EXPENSE' && isInstallment ? 'Valor Total da Compra (R$)' : 'Valor (R$)'}
+              {type === 'EXPENSE' && isInstallment ? 'Valor Total da Compra' : 'Valor'}
             </label>
-            <input
-              type="text"
+            <MoneyInput
               required
+              autoFocus
               placeholder="0,00"
               value={amountStr}
-              onChange={(e) => setAmountStr(e.target.value)}
+              onChange={setAmountStr}
               className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-2xl font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
             />
           </div>
@@ -287,13 +289,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                         : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
                     }`}
                   >
-                    {m === 'MONEY'
-                      ? 'Dinheiro'
-                      : m === 'CREDIT'
-                      ? 'Crédito'
-                      : m === 'DEBIT'
-                      ? 'Débito'
-                      : m}
+                    {paymentMethodLabel(m)}
                   </button>
                 )
               )}

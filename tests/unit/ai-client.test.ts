@@ -247,6 +247,16 @@ describe('AIClient (Integração com Provedores Gratuitos de IA)', () => {
       expect(mockFetch.mock.calls[1][0]).not.toContain('/models/gemini-3.6-flash:');
     });
 
+    it('pula um modelo reserva que a chave não pode usar e tenta o próximo', async () => {
+      const notFound = { ok: false, status: 404, statusText: 'Not Found', json: async () => ({ error: { message: 'models/x is not found for API version v1beta' } }) };
+      const mockFetch = vi.fn().mockResolvedValueOnce(overloaded()).mockResolvedValueOnce(notFound).mockResolvedValueOnce(answer('Terceiro respondeu'));
+
+      const reply = await generateAdvisorAdvice(config, 'Oi', mockFetch as any);
+
+      expect(reply).toBe('Terceiro respondeu');
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+    });
+
     it('explica que o serviço está sobrecarregado quando todas as tentativas falham', async () => {
       const mockFetch = vi.fn().mockImplementation(async () => overloaded());
 

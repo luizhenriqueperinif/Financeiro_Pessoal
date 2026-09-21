@@ -5,7 +5,10 @@ import {
 import {
   IRecurringRuleRepository,
   ICategoryRepository,
+  ITransactionRepository,
 } from '../../domain/repositories.js';
+import { DateUtils } from '../../utils/date-utils.js';
+import { removeOpenOccurrences, syncOpenOccurrences } from './rule-occurrences.js';
 
 export class ListRecurringRulesUseCase {
   constructor(private recurringRepo: IRecurringRuleRepository) {}
@@ -18,7 +21,8 @@ export class ListRecurringRulesUseCase {
 export class UpdateRecurringRuleUseCase {
   constructor(
     private recurringRepo: IRecurringRuleRepository,
-    private categoryRepo: ICategoryRepository
+    private categoryRepo: ICategoryRepository,
+    private transactionRepo?: ITransactionRepository
   ) {}
 
   execute(id: string, dto: UpdateRecurringRuleDTO): RecurringRule {
@@ -42,18 +46,39 @@ export class UpdateRecurringRuleUseCase {
     if (!updated) {
       throw new Error('Erro ao atualizar regra recorrente');
     }
+
+    // Lançamentos já gerados e ainda em aberto acompanham a regra
+    if (!updated.isActive) {
+      removeOpenOccurrences(id, DateUtils.today(), this.transactionRepo);
+    } else {
+      syncOpenOccurrences(updated, this.transactionRepo);
+      if (updated.endDate) {
+        removeOpenOccurrences(id, nextDay(updated.endDate), this.transactionRepo);
+      }
+    }
     return updated;
   }
 }
 
-export class DeleteRecurringRuleUseCase {
-  constructor(private recurringRepo: IRecurringRuleRepository) {}
+function nextDay(date: string): string {
+  const [y, m, d] = date.split('-').map(Number);
+  const next = new Date(y, m - 1, d + 1);
+  return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}`;
+}
 
+export class DeleteRecurringRuleUseCase {
+  constructor(
+    private recurringRepo: IRecurringRuleRepository,
+    private transactionRepo?: ITransactionRepository
+  ) {}
+
+  /** Remove também os lançamentos futuros em aberto; os já pagos ficam como histórico. */
   execute(id: string): boolean {
     const existing = this.recurringRepo.findById(id);
     if (!existing) {
       throw new Error('Regra recorrente não encontrada');
     }
+    removeOpenOccurrences(id, DateUtils.today(), this.transactionRepo);
     return this.recurringRepo.delete(id);
   }
 }

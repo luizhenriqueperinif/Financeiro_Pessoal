@@ -175,4 +175,19 @@ describe('Financial Forecast Use Case (Previsão Financeira)', () => {
     // Outubro: IPVA + diarista em 02, 09, 16, 23 e 30
     expect(forecast.months[1].expenseCents).toBe(150000 + 50000);
   });
+
+  it('começando num mês futuro, o acumulado inclui os meses entre hoje e o início', () => {
+    const moradiaCat = categoryRepo.findByName('Moradia')!;
+    recurringRepo.create({
+      description: 'Aluguel', amountCents: 150000, type: 'EXPENSE', categoryId: moradiaCat.id,
+      frequency: 'MONTHLY', dueDay: 10, startDate: '2026-09-01', paymentMethod: 'PIX',
+    });
+
+    const desdeSetembro = calculateForecast.execute('2026-09', 4);
+    const desdeDezembro = calculateForecast.execute('2026-12', 1);
+
+    expect(desdeDezembro.months[0].yearMonth).toBe('2026-12');
+    expect(desdeDezembro.months[0].accumulatedBalanceCents).toBe(desdeSetembro.months[3].accumulatedBalanceCents);
+    expect(desdeDezembro.months[0].accumulatedBalanceCents).toBe(-600000);
+  });
 });

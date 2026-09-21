@@ -3,6 +3,9 @@ import { AppDatabase } from '../../src/infra/database/connection.js';
 import { SqliteCategoryRepository } from '../../src/infra/repositories/sqlite-category-repository.js';
 import { SqliteTransactionRepository } from '../../src/infra/repositories/sqlite-transaction-repository.js';
 import { BackupService } from '../../src/core/services/backup-service.js';
+import { SqliteRecurringRuleRepository } from '../../src/infra/repositories/sqlite-recurring-rule-repository.js';
+import { ProcessRecurringInstancesUseCase } from '../../src/core/use-cases/recurring/index.js';
+import { DeleteTransactionUseCase } from '../../src/core/use-cases/transactions/index.js';
 
 describe('Backup Service (Segurança e Portabilidade de Dados)', () => {
   let appDb: AppDatabase;
@@ -49,5 +52,22 @@ describe('Backup Service (Segurança e Portabilidade de Dados)', () => {
     expect(transacoesRestauradas[0].amountCents).toBe(12500);
 
     novoAppDb.close();
+  });
+
+  it('mantém as ocorrências excluídas de regras fixas ao restaurar o backup', () => {
+    const raw = appDb.getRawDb();
+    const recurringRepo = new SqliteRecurringRuleRepository(raw);
+    const process = new ProcessRecurringInstancesUseCase(recurringRepo, transactionRepo);
+    const moradia = categoryRepo.findByName('Moradia')!;
+    recurringRepo.create({
+      description: 'Internet', amountCents: 9990, type: 'EXPENSE', categoryId: moradia.id,
+      frequency: 'MONTHLY', dueDay: 15, startDate: '2026-09-01', paymentMethod: 'PIX',
+    });
+    const [setembro] = process.execute('2026-09');
+    new DeleteTransactionUseCase(transactionRepo, recurringRepo).execute(setembro.id);
+
+    backupService.importFromJSON(backupService.exportToJSON());
+
+    expect(process.execute('2026-09')).toHaveLength(0);
   });
 });

@@ -33,7 +33,12 @@ export class CalculateForecastUseCase {
   execute(startYearMonth?: string, monthsCount: number = 6): ForecastResult {
     const today = DateUtils.today();
     const initialYM = startYearMonth || DateUtils.getYearMonth(today);
-    const monthsList = DateUtils.getNextMonths(initialYM, Math.max(1, monthsCount));
+    // Começando num mês futuro, projeta também os meses entre hoje e o início para o acumulado
+    // ficar certo; esses meses intermediários não aparecem no resultado.
+    const currentYM = DateUtils.getYearMonth(today);
+    const projectionStart = initialYM > currentYM ? currentYM : initialYM;
+    const monthsBetween = DateUtils.getNextMonths(projectionStart, 240).indexOf(initialYM);
+    const monthsList = DateUtils.getNextMonths(projectionStart, Math.max(0, monthsBetween) + Math.max(1, monthsCount));
 
     // 1. Calcula o Saldo Real Atual (liquidez acumulada até o momento)
     const allTransactions = this.transactionRepo.list();
@@ -166,11 +171,13 @@ export class CalculateForecastUseCase {
       });
     }
 
+    const visibleMonths = forecastItems.filter((m) => m.yearMonth >= initialYM);
+
     return {
       startYearMonth: initialYM,
-      totalMonths: monthsList.length,
+      totalMonths: visibleMonths.length,
       initialBalanceCents: currentBalanceCents,
-      months: forecastItems,
+      months: visibleMonths,
     };
   }
 }

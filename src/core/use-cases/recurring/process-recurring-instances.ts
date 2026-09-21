@@ -24,6 +24,11 @@ export class ProcessRecurringInstancesUseCase {
     const createdTransactions: Transaction[] = [];
 
     for (const rule of activeRules) {
+      // Meses anteriores ao cadastro da regra não ganham lançamentos (viriam já atrasados)
+      const created = new Date(rule.createdAt);
+      const createdMonth = `${created.getFullYear()}-${String(created.getMonth() + 1).padStart(2, '0')}`;
+      if (!Number.isNaN(created.getTime()) && targetMonth < createdMonth) continue;
+
       const dueDates = recurringOccurrencesInMonth(rule, targetMonth);
       if (dueDates.length === 0) continue;
 

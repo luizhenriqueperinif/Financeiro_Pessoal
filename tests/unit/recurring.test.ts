@@ -3,11 +3,12 @@ import { AppDatabase } from '../../src/infra/database/connection.js';
 import { SqliteCategoryRepository } from '../../src/infra/repositories/sqlite-category-repository.js';
 import { SqliteTransactionRepository } from '../../src/infra/repositories/sqlite-transaction-repository.js';
 import { SqliteRecurringRuleRepository } from '../../src/infra/repositories/sqlite-recurring-rule-repository.js';
-import { DeleteTransactionUseCase } from '../../src/core/use-cases/transactions/index.js';
+import { DeleteTransactionUseCase, ListTransactionsUseCase } from '../../src/core/use-cases/transactions/index.js';
 import {
   CreateRecurringRuleUseCase,
   ListRecurringRulesUseCase,
   UpdateRecurringRuleUseCase,
+  DeleteRecurringRuleUseCase,
   ProcessRecurringInstancesUseCase,
 } from '../../src/core/use-cases/recurring/index.js';
 
@@ -161,5 +162,69 @@ describe('Recurring Rules Use Cases (Despesas Fixas)', () => {
 
     expect(processInstances.execute('2026-10')).toHaveLength(0);
     expect(processInstances.execute('2026-11')).toHaveLength(1);
+  });
+
+  it('a lista do mês já mostra os lançamentos das regras fixas, sem depender do dashboard', () => {
+    const salario = categoryRepo.findByName('Salário')!;
+    createRule.execute({
+      description: 'Salário', amountCents: 300000, type: 'INCOME', categoryId: salario.id,
+      frequency: 'MONTHLY', dueDay: 5, startDate: '2026-01-01', paymentMethod: 'PIX',
+    });
+    const listTx = new ListTransactionsUseCase(transactionRepo, processInstances);
+
+    const outubro = listTx.execute({ yearMonth: '2026-10', type: 'INCOME' });
+
+    expect(outubro.map((t) => [t.description, t.date])).toEqual([['Salário', '2026-10-05']]);
+  });
+
+  describe('lançamentos futuros acompanham a regra', () => {
+    // Relógio dos testes: 01/09/2026
+    const setup = () => {
+      const moradia = categoryRepo.findByName('Moradia')!;
+      const rule = createRule.execute({
+        description: 'Aluguel', amountCents: 150000, type: 'EXPENSE', categoryId: moradia.id,
+        frequency: 'MONTHLY', dueDay: 10, startDate: '2026-09-01', paymentMethod: 'PIX',
+      });
+      processInstances.execute('2026-09');
+      processInstances.execute('2026-11');
+      return rule;
+    };
+    const aluguel = () => transactionRepo.list({ startDate: '2026-01-01' }).filter((t) => t.description.startsWith('Aluguel'));
+
+    it('excluir a regra remove os lançamentos futuros ainda não pagos', () => {
+      const rule = setup();
+      const [setembro] = aluguel().filter((t) => t.date === '2026-09-10');
+      transactionRepo.markAsPaid(setembro.id, '2026-09-10');
+
+      new DeleteRecurringRuleUseCase(recurringRepo, transactionRepo).execute(rule.id);
+
+      expect(aluguel().map((t) => [t.date, t.status])).toEqual([['2026-09-10', 'PAID']]);
+    });
+
+    it('pausar a regra remove os lançamentos futuros ainda não pagos', () => {
+      const rule = setup();
+      new UpdateRecurringRuleUseCase(recurringRepo, categoryRepo, transactionRepo).execute(rule.id, { isActive: false });
+      expect(aluguel()).toHaveLength(0);
+    });
+
+    it('editar valor e dia atualiza os lançamentos futuros ainda não pagos', () => {
+      const rule = setup();
+      new UpdateRecurringRuleUseCase(recurringRepo, categoryRepo, transactionRepo).execute(rule.id, { amountCents: 180000, dueDay: 12 });
+      expect(aluguel().map((t) => [t.date, t.amountCents]).sort()).toEqual([
+        ['2026-09-12', 180000],
+        ['2026-11-12', 180000],
+      ]);
+    });
+  });
+
+  it('não cria lançamentos em meses anteriores ao cadastro da regra', () => {
+    const moradia = categoryRepo.findByName('Moradia')!;
+    createRule.execute({
+      description: 'Luz', amountCents: 20000, type: 'EXPENSE', categoryId: moradia.id,
+      frequency: 'MONTHLY', dueDay: 10, startDate: '2026-01-01', paymentMethod: 'PIX',
+    });
+
+    expect(processInstances.execute('2026-03')).toHaveLength(0);
+    expect(processInstances.execute('2026-09')).toHaveLength(1);
   });
 });

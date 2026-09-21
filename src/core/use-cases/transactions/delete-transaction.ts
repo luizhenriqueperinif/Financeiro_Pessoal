@@ -11,6 +11,11 @@ export class DeleteTransactionUseCase {
     if (!existing) {
       throw new Error('Transação não encontrada');
     }
+    if (existing.installmentId) {
+      throw new Error(
+        `"${existing.description}" é uma parcela de compra parcelada. Para excluir, use a tela Parcelamentos.`
+      );
+    }
     // Ocorrência gerada por regra recorrente: registra a exclusão para que
     // o processamento automático do mês não a recrie.
     if (existing.recurringRuleId && this.recurringRepo) {

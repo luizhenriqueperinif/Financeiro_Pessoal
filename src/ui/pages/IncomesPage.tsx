@@ -9,8 +9,9 @@ import {
 } from 'lucide-react';
 import { Transaction } from '../../core/domain/transaction.js';
 import { Category } from '../../core/domain/category.js';
-import { formatMoney, formatDate } from '../utils/formatters.js';
+import { formatMoney, formatDate, paymentMethodLabel } from '../utils/formatters.js';
 import { Money } from '../../core/value-objects/money.js';
+import { MoneyInput } from '../components/MoneyInput.js';
 import { DateUtils } from '../../core/utils/date-utils.js';
 import { api } from '../services/api.js';
 import {
@@ -25,6 +26,8 @@ interface IncomesPageProps {
   refreshKey?: number;
   /** Lançamento recém-criado, destacado por alguns segundos. */
   highlightId?: string | null;
+  /** Chamado após pagar, receber, excluir etc., para o App atualizar o saldo. */
+  onDataChanged?: () => void;
   onOpenNewIncome: () => void;
   categories: Category[];
 }
@@ -33,12 +36,19 @@ export const IncomesPage: React.FC<IncomesPageProps> = ({
   selectedYearMonth,
   refreshKey,
   highlightId,
+  onDataChanged,
   onOpenNewIncome,
   categories,
 }) => {
   const [incomes, setIncomes] = useState<Transaction[]>([]);
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [loading, setLoading] = useState(true);
+
+  // Recarrega a página e avisa o App (saldo da barra lateral)
+  const refresh = () => {
+    loadData();
+    onDataChanged?.();
+  };
 
   const loadData = async () => {
     try {
@@ -76,7 +86,7 @@ export const IncomesPage: React.FC<IncomesPageProps> = ({
       }
       await api.markTransactionPaid(receiving.item.id, receiving.date);
       setReceiving(null);
-      loadData();
+      refresh();
     } catch (err: any) {
       setReceiving({ ...receiving, error: err.message || 'Erro ao marcar receita como recebida' });
     }
@@ -87,7 +97,7 @@ export const IncomesPage: React.FC<IncomesPageProps> = ({
     if (!confirm(`Desmarcar o recebimento de "${item.description}"${receivedOn}?`)) return;
     try {
       await api.markTransactionUnpaid(item.id);
-      loadData();
+      refresh();
     } catch (err) {
       alert('Erro ao desmarcar receita como recebida');
     }
@@ -97,9 +107,9 @@ export const IncomesPage: React.FC<IncomesPageProps> = ({
     if (confirm(`Tem certeza que deseja excluir a receita "${description}"?`)) {
       try {
         await api.deleteTransaction(id);
-        loadData();
-      } catch (err) {
-        alert('Erro ao excluir receita');
+        refresh();
+      } catch (err: any) {
+        alert(err?.message || 'Erro ao excluir receita');
       }
     }
   };
@@ -121,11 +131,11 @@ export const IncomesPage: React.FC<IncomesPageProps> = ({
             {receiving.error && <div className="text-xs text-rose-600">{receiving.error}</div>}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">Valor recebido (R$)</label>
-                <input
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">Valor recebido</label>
+                <MoneyInput
                   autoFocus
                   value={receiving.amount}
-                  onChange={(e) => setReceiving({ ...receiving, amount: e.target.value })}
+                  onChange={(amount) => setReceiving({ ...receiving, amount })}
                   onKeyDown={(e) => e.key === 'Enter' && confirmReceive()}
                   className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-900 dark:text-white"
                 />
@@ -267,7 +277,7 @@ export const IncomesPage: React.FC<IncomesPageProps> = ({
                           {item.categoryName}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-slate-500">{item.paymentMethod}</td>
+                      <td className="py-3 px-4 text-slate-500">{paymentMethodLabel(item.paymentMethod)}</td>
                       <td className="py-3 px-4 text-right font-bold text-emerald-600 dark:text-emerald-400 text-sm">
                         +{formatMoney(item.amountCents)}
                       </td>

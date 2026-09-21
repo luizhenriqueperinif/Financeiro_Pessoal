@@ -27,6 +27,8 @@ export interface CreateInvestmentDTO {
   incomeDueDay?: number;
   /** Receita Fixa já existente a ser vinculada, em vez de criar outra. */
   linkRecurringRuleId?: string | null;
+  /** Ao editar: troca a receita vinculada por uma nova (a antiga é pausada). */
+  createNewIncomeRule?: boolean;
   notes?: string | null;
 }
 

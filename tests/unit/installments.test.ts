@@ -3,6 +3,7 @@ import { AppDatabase } from '../../src/infra/database/connection.js';
 import { SqliteCategoryRepository } from '../../src/infra/repositories/sqlite-category-repository.js';
 import { SqliteTransactionRepository } from '../../src/infra/repositories/sqlite-transaction-repository.js';
 import { SqliteInstallmentPurchaseRepository } from '../../src/infra/repositories/sqlite-installment-purchase-repository.js';
+import { DeleteTransactionUseCase } from '../../src/core/use-cases/transactions/index.js';
 import {
   CreateInstallmentPurchaseUseCase,
   ListInstallmentPurchasesUseCase,
@@ -198,5 +199,17 @@ describe('Installment Purchases Use Cases (Compras Parceladas)', () => {
       { yearMonth: '2026-12', amountCents: 3000, remainingCents: 3000 },
     ]);
     expect(resumo[0].totalCents).toBe(20000);
+  });
+
+  it('não deixa excluir pela lista de despesas o lançamento de uma parcela', () => {
+    const outras = categoryRepo.findByName('Outras Despesas')!;
+    const compra = createPurchase.execute({
+      description: 'TV', totalAmountCents: 300000, totalInstallments: 3, firstDueDate: '2026-10-10',
+      categoryId: outras.id, paymentMethod: 'CREDIT',
+    });
+    const txId = compra.installments![0].transactionId!;
+
+    expect(() => new DeleteTransactionUseCase(transactionRepo).execute(txId)).toThrow(/Parcelamentos/);
+    expect(transactionRepo.findById(txId)).not.toBeNull();
   });
 });
