@@ -1,10 +1,74 @@
 import { DashboardMetrics } from '../domain/dashboard.js';
+import { Transaction } from '../domain/transaction.js';
+import { CardSummary } from '../domain/installment-purchase.js';
 import { Money } from '../value-objects/money.js';
+import { DateUtils } from '../utils/date-utils.js';
+
+/** Dados concretos que evitam que a IA invente gastos a partir de totais por categoria. */
+export interface AdvisorDetails {
+  transactions?: Transaction[];
+  cards?: CardSummary[];
+  today?: string;
+}
+
+const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+const monthLabel = (ym: string) => `${MONTHS[Number(ym.slice(5, 7)) - 1]}/${ym.slice(2, 4)}`;
+const dayLabel = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
+
+const STATUS_LABEL: Record<string, string> = {
+  PAID: 'paga',
+  RECEIVED: 'recebida',
+  PENDING: 'a vencer',
+  OVERDUE: 'atrasada',
+  CANCELLED: 'cancelada',
+};
+
+function originLabel(t: Transaction): string {
+  if (t.installmentId) return `, parcela ${t.installmentNumber}/${t.totalInstallments}`;
+  if (t.recurringRuleId) return ', fixa';
+  return '';
+}
+
+function transactionsSection(transactions: Transaction[], today: string): string {
+  const active = transactions.filter((t) => t.status !== 'CANCELLED');
+  const line = (t: Transaction) =>
+    `- ${t.description}: ${Money.format(t.amountCents)} — ${STATUS_LABEL[t.status] ?? t.status}` +
+    ` (vence ${dayLabel(t.date)}${originLabel(t)}; ${t.categoryName ?? 'sem categoria'})`;
+  const incomes = active.filter((t) => t.type === 'INCOME');
+  const expenses = active.filter((t) => t.type === 'EXPENSE').sort((a, b) => b.amountCents - a.amountCents);
+  return `### LANÇAMENTOS DO MÊS (hoje é ${dayLabel(today)}):
+Receitas:
+${incomes.length ? incomes.map(line).join('\n') : '- nenhuma'}
+Despesas (da maior para a menor):
+${expenses.length ? expenses.map(line).join('\n') : '- nenhuma'}`;
+}
+
+function cardsSection(cards: CardSummary[]): string {
+  const open = cards.filter((c) => c.remainingCents > 0);
+  if (open.length === 0) return '';
+  const lines = open.map((c) => {
+    const months = c.months
+      .filter((m) => m.remainingCents > 0)
+      .map((m) => `${monthLabel(m.yearMonth)} ${Money.format(m.remainingCents)}`)
+      .join(', ');
+    return `- ${c.cardName}: falta pagar ${Money.format(c.remainingCents)} → ${months}`;
+  });
+  return `### FATURAS DE CARTÃO A PAGAR (parcelas já assumidas):
+${lines.join('\n')}`;
+}
 
 export function buildFinancialContextPrompt(
   metrics: DashboardMetrics,
-  userQuestion: string
+  userQuestion: string,
+  details: AdvisorDetails = {}
 ): string {
+  const today = details.today ?? DateUtils.today();
+  const detailSections = [
+    details.transactions ? transactionsSection(details.transactions, today) : '',
+    details.cards ? cardsSection(details.cards) : '',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
   const alerts = metrics.alerts;
   const totalIncomes = alerts ? alerts.totalIncomeCents : metrics.monthIncomeCents + metrics.expectedIncomeCents;
   const totalExpenses = alerts ? alerts.totalProjectedExpenseCents : metrics.paidExpenseCents + metrics.pendingExpenseCents;
@@ -42,7 +106,7 @@ export function buildFinancialContextPrompt(
   }
 
   return `Você é o "Conselheiro Financeiro Pessoal", um Educador Financeiro empático, prudente e analítico.
-Seu objetivo é orientar o usuário a tomar decisões financeiras conscientes, prevenir endividamento, avaliar simulações de compras parceladas e identificar oportunidades de corte de despesas.
+Seu objetivo é orientar o usuário a tomar decisões financeiras conscientes, prevenir endividamento, avaliar simulações de compras parceladas e identificar oportunidades de corte de despesas, sempre com base nos números reais dele.
 
 ### CONTEXTO FINANCEIRO DO USUÁRIO (${metrics.selectedYearMonth}):
 - Saldo Atual Real em Conta: ${Money.format(metrics.currentBalanceCents)}
@@ -62,22 +126,22 @@ ${deficitAlertText}
 ### DISTRIBUIÇÃO DAS DESPESAS POR CATEGORIA:
 ${categoriesText}
 
-### PREVISÃO DOS PRÓXIMOS MESES (FLUXO PROSPECTIVO):
+${detailSections ? detailSections + '\n\n' : ''}### PREVISÃO DOS PRÓXIMOS MESES (FLUXO PROSPECTIVO):
 ${forecastText}
 
 ---
 
-### INSTRUÇÕES PARA SUA RESPOSTA:
-1. Responda diretamente à dúvida ou simulação do usuário com clareza, objetividade e responsabilidade.
-2. Utilize SEMPRE os números concretos informados acima (em R$) para embasar sua orientação.
-3. Se o usuário perguntar se pode comprar algo novo ou parcelado:
-   - Calcule a nova parcela mensal e analise o impacto no Orçamento Diário Disponível e no Saldo Previsto dos próximos meses.
-   - Se o comprometimento já estiver na faixa de atenção (> 70%) ou crítico (> 85%), desaconselhe ou sugira adiar a compra até liquidar parcelas antigas.
-4. Se o usuário pedir onde cortar despesas, aponte as categorias de maior peso percentual e gastos variáveis.
-5. Mantenha as respostas concisas, práticas e com tópicos bem formatados.
-6. Nunca prometa lucros fáceis ou recomende investimentos especulativos.
+### REGRAS PARA SUA RESPOSTA:
+1. Responda primeiro, em uma ou duas frases, exatamente o que foi perguntado. Depois justifique.
+2. Use somente os dados acima. Não invente gastos, contas, assinaturas ou valores que não aparecem na lista; cite cada gasto pelo nome exato (ex.: "Prestação", não "aluguel").
+3. Se faltar informação para responder, diga o que falta em vez de supor.
+4. Faça as contas passo a passo e confira antes de responder. Para compras parceladas: parcela = valor ÷ número de parcelas; some a parcela à despesa de CADA mês afetado na previsão e diga em quais meses o saldo fica negativo.
+5. Sugestões de corte devem apontar lançamentos concretos da lista (maiores e variáveis primeiro). Não sugira cortar despesas de cunho pessoal ou religioso (ex.: dízimo) — apenas mencione o peso delas se for relevante.
+6. Se o comprometimento de algum mês afetado passar de 85% ou houver déficit, desaconselhe novas parcelas e diga a partir de quando seria viável.
+7. Seja breve: até 200 palavras, em português do Brasil, com no máximo 5 tópicos curtos. Não use tabelas nem fórmulas LaTeX.
+8. Nunca prometa lucros fáceis nem recomende investimentos especulativos.
 
-### DÚVIDA / SIMULAÇÃO DO USUÁRIO:
+### PERGUNTA DO USUÁRIO:
 "${userQuestion}"
 `;
 }

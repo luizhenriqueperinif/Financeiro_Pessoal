@@ -108,4 +108,44 @@ describe('AI Advisor Prompt Builder (Construção do Contexto Financeiro para IA
     expect(prompt).toContain('DÉFICIT');
     expect(prompt).toContain('500,00');
   });
+
+  describe('com os lançamentos reais do usuário', () => {
+    const tx = (over: Partial<any>) => ({
+      id: over.description, amountCents: 1000, type: 'EXPENSE', categoryId: 'c', categoryName: 'Moradia',
+      date: '2026-09-10', paymentMethod: 'PIX', status: 'PENDING', createdAt: '', updatedAt: '', ...over,
+    });
+    const details = {
+      today: '2026-09-21',
+      transactions: [
+        tx({ description: 'Prestação', amountCents: 192825, status: 'PAID', paymentDate: '2026-09-10', recurringRuleId: 'r1' }),
+        tx({ description: 'Dízimo (10% + R$ 60)', amountCents: 49750, categoryName: 'Outras Despesas', status: 'OVERDUE', date: '2026-09-10' }),
+        tx({ description: 'Salário Luiz', amountCents: 230000, type: 'INCOME', categoryName: 'Salário', status: 'RECEIVED' }),
+      ] as any,
+      cards: [
+        { cardName: 'Cartão Nu CPF', purchaseCount: 1, totalCents: 83532, remainingCents: 83532,
+          months: [{ yearMonth: '2026-10', amountCents: 22080, remainingCents: 22080 }, { yearMonth: '2026-11', amountCents: 19494, remainingCents: 19494 }] },
+      ],
+    };
+
+    it('lista cada lançamento do mês pelo nome, valor e situação', () => {
+      const prompt = buildFinancialContextPrompt(mockMetrics, 'Onde cortar?', details);
+      expect(prompt).toMatch(/Prestação.*R\$\s?1\.928,25.*paga/i);
+      expect(prompt).toMatch(/Dízimo \(10% \+ R\$ 60\).*R\$\s?497,50.*atrasada/i);
+      expect(prompt).toMatch(/Salário Luiz.*R\$\s?2\.300,00.*recebida/i);
+    });
+
+    it('inclui as faturas de cada cartão nos próximos meses', () => {
+      const prompt = buildFinancialContextPrompt(mockMetrics, 'Posso parcelar?', details);
+      expect(prompt).toContain('Cartão Nu CPF');
+      expect(prompt).toMatch(/out\/26.*R\$\s?220,80/);
+      expect(prompt).toMatch(/nov\/26.*R\$\s?194,94/);
+    });
+
+    it('proíbe inventar gastos e pede resposta curta', () => {
+      const prompt = buildFinancialContextPrompt(mockMetrics, 'Oi', details);
+      expect(prompt).toMatch(/não invente/i);
+      expect(prompt).toMatch(/pelo nome/i);
+      expect(prompt).toMatch(/até \d+ palavras/i);
+    });
+  });
 });

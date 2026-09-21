@@ -6,10 +6,10 @@ import {
 } from '../../src/core/services/ai-client.js';
 
 describe('AIClient (Integração com Provedores Gratuitos de IA)', () => {
-  it('usa o Groq com GPT-OSS 120B como configuração padrão', () => {
+  it('usa o Groq com Qwen 3.8 27B como configuração padrão', () => {
     const config = getDefaultAIConfig();
     expect(config.provider).toBe('groq');
-    expect(config.model).toBe('openai/gpt-oss-120b');
+    expect(config.model).toBe('qwen/qwen3.8-27b');
   });
 
   it('lança erro amigável se a chave de API do Gemini não estiver configurada', async () => {
