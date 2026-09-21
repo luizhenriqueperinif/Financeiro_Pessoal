@@ -3,9 +3,19 @@ productName: Financeiro Pessoal
 npmRebuild: false
 directories:
   output: release
+  buildResources: build
 files:
   - dist/**/*
+  - node_modules/better-sqlite3/**/*
+  # Só o binário pré-compilado do Windows x64 é carregado em runtime
+  - "!node_modules/better-sqlite3/{deps,src,build}/**"
+  - "!node_modules/better-sqlite3/binding.gyp"
+  - "!node_modules/better-sqlite3/prebuilds/!(win32-x64).node"
+  - package.json
+asarUnpack:
+  - "**/*.node"
 win:
+  icon: build/icon.ico
   target:
     - target: nsis
       arch:
@@ -19,3 +29,5 @@ nsis:
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: Financeiro Pessoal
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico

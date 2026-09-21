@@ -3,6 +3,24 @@
  */
 export class DateUtils {
   /**
+   * Data de hoje (YYYY-MM-DD) no fuso local. Não use toISOString(), que é UTC
+   * e no Brasil já vira o dia seguinte a partir das 21h.
+   */
+  static today(): string {
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${now.getFullYear()}-${month}-${day}`;
+  }
+
+  /**
+   * Mês corrente (YYYY-MM) no fuso local.
+   */
+  static currentYearMonth(): string {
+    return DateUtils.today().slice(0, 7);
+  }
+
+  /**
    * Adiciona N meses a uma data inicial (YYYY-MM-DD), preservando o dia do mês
    * ou ajustando para o último dia caso o mês de destino seja mais curto.
    *

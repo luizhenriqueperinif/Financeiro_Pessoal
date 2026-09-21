@@ -48,7 +48,7 @@ export class GetDashboardMetricsUseCase {
   }
 
   execute(selectedYearMonth?: string): DashboardMetrics {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = DateUtils.today();
     const targetYM = selectedYearMonth || DateUtils.getYearMonth(today);
 
     // 1. Garante que os lançamentos fixos do mês selecionado foram instanciados

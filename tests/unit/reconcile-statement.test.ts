@@ -2,6 +2,9 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { ReconcileStatementUseCase } from '../../src/core/use-cases/statement/reconcile-statement.js';
 import { ITransactionRepository, ICategoryRepository } from '../../src/core/domain/repositories.js';
 import { BankStatementItem } from '../../src/core/domain/statement.js';
+import { AppDatabase } from '../../src/infra/database/connection.js';
+import { SqliteCategoryRepository } from '../../src/infra/repositories/sqlite-category-repository.js';
+import { SqliteTransactionRepository } from '../../src/infra/repositories/sqlite-transaction-repository.js';
 
 describe('ReconcileStatementUseCase (Costura 2: Conciliação e Deduplicação)', () => {
   let txRepo: ITransactionRepository;
@@ -100,5 +103,62 @@ describe('ReconcileStatementUseCase (Costura 2: Conciliação e Deduplicação)'
     expect(result.transactions).toHaveLength(1);
     expect(result.transactions[0].description).toBe('Padaria Doce Pão');
     expect(result.transactions[0].amountCents).toBe(3500);
+  });
+});
+
+describe('ReconcileStatementUseCase com banco SQLite', () => {
+  let appDb: AppDatabase;
+  let txRepo: SqliteTransactionRepository;
+  let catRepo: SqliteCategoryRepository;
+  let useCase: ReconcileStatementUseCase;
+
+  beforeEach(() => {
+    appDb = new AppDatabase(':memory:');
+    const rawDb = appDb.getRawDb();
+    txRepo = new SqliteTransactionRepository(rawDb);
+    catRepo = new SqliteCategoryRepository(rawDb);
+    useCase = new ReconcileStatementUseCase(txRepo, catRepo, (fn) => rawDb.transaction(fn)());
+  });
+
+  it('item do extrato que corresponde a uma conta pendente a quita em vez de duplicar', () => {
+    const moradia = catRepo.findByName('Moradia')!;
+    const pendente = txRepo.create({
+      description: 'Conta de Luz',
+      amountCents: 18000,
+      type: 'EXPENSE',
+      categoryId: moradia.id,
+      date: '2026-09-08',
+      paymentMethod: 'BOLETO',
+      status: 'PENDING',
+    });
+
+    const [row] = useCase.preview([
+      { externalId: 'e1', date: '2026-09-08', description: 'ENEL', amountCents: 18000, type: 'EXPENSE' },
+    ]);
+    expect(row.isDuplicate).toBe(false);
+    expect(row.selected).toBe(true);
+    expect(row.settlesTransactionId).toBe(pendente.id);
+
+    const result = useCase.commit([
+      { date: '2026-09-08', description: 'ENEL', amountCents: 18000, type: 'EXPENSE', categoryId: moradia.id, settlesTransactionId: pendente.id },
+    ]);
+
+    expect(result.settledCount).toBe(1);
+    expect(result.importedCount).toBe(0);
+    expect(txRepo.list()).toHaveLength(1);
+    expect(txRepo.findById(pendente.id)!.status).toBe('PAID');
+    expect(txRepo.findById(pendente.id)!.paymentDate).toBe('2026-09-08');
+  });
+
+  it('não grava nada se algum item da importação for inválido', () => {
+    const moradia = catRepo.findByName('Moradia')!;
+    expect(() =>
+      useCase.commit([
+        { date: '2026-09-01', description: 'Válido', amountCents: 1000, type: 'EXPENSE', categoryId: moradia.id },
+        { date: '2026-09-02', description: 'Sem categoria', amountCents: 2000, type: 'EXPENSE', categoryId: '' },
+      ])
+    ).toThrow();
+
+    expect(txRepo.list()).toHaveLength(0);
   });
 });

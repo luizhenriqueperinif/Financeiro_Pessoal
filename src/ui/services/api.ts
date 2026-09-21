@@ -16,6 +16,7 @@ import {
   ReconciliationResult,
 } from '../../core/domain/statement.js';
 import { StatementParserService } from '../../core/services/statement-parser-service.js';
+import { DateUtils } from '../../core/utils/date-utils.js';
 
 const DEFAULT_WEB_CATEGORIES: Category[] = [
   { id: 'cat-alimentacao', name: 'Alimentação', type: 'EXPENSE', description: 'Mercado e restaurantes', color: '#EF4444', icon: 'Utensils', createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z' },
@@ -280,7 +281,7 @@ class ApiClient implements IElectronAPI {
     const target = txs.find((t) => t.id === id);
     if (!target) throw new Error('Transação não encontrada');
     target.status = target.type === 'INCOME' ? 'RECEIVED' : 'PAID';
-    target.paymentDate = paymentDate || new Date().toISOString().slice(0, 10);
+    target.paymentDate = paymentDate || DateUtils.today();
     localStorage.setItem('fp_transactions', JSON.stringify(txs));
     return target;
   }
@@ -378,7 +379,7 @@ class ApiClient implements IElectronAPI {
       const inst = p.installments?.find((i) => i.id === id);
       if (inst) {
         inst.status = 'PAID';
-        inst.paymentDate = paymentDate || new Date().toISOString().slice(0, 10);
+        inst.paymentDate = paymentDate || DateUtils.today();
         foundInst = inst;
         break;
       }
@@ -418,7 +419,7 @@ class ApiClient implements IElectronAPI {
 
   async getDashboardMetrics(yearMonth?: string): Promise<DashboardMetrics> {
     if (this.hasElectron) return window.api!.getDashboardMetrics(yearMonth);
-    const ym = yearMonth || new Date().toISOString().slice(0, 7);
+    const ym = yearMonth || DateUtils.currentYearMonth();
     return {
       selectedYearMonth: ym,
       currentBalanceCents: 148925,
@@ -516,7 +517,7 @@ class ApiClient implements IElectronAPI {
 
   async getCalendarData(yearMonth?: string): Promise<CalendarMonthData> {
     if (this.hasElectron) return window.api!.getCalendarData(yearMonth);
-    const ym = yearMonth || new Date().toISOString().slice(0, 7);
+    const ym = yearMonth || DateUtils.currentYearMonth();
     return {
       yearMonth: ym,
       year: 2026,
@@ -577,7 +578,7 @@ class ApiClient implements IElectronAPI {
 
   async getForecast(startYearMonth?: string, count?: number): Promise<ForecastResult> {
     if (this.hasElectron) return window.api!.getForecast(startYearMonth, count);
-    const ym = startYearMonth || new Date().toISOString().slice(0, 7);
+    const ym = startYearMonth || DateUtils.currentYearMonth();
     return {
       startYearMonth: ym,
       totalMonths: count || 6,
@@ -662,6 +663,7 @@ class ApiClient implements IElectronAPI {
     localStorage.setItem('fp_transactions', JSON.stringify(txs));
     return {
       importedCount: created.length,
+      settledCount: 0,
       skippedCount: 0,
       transactions: created,
     };

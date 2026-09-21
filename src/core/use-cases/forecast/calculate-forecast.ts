@@ -7,6 +7,7 @@ import {
   IRecurringRuleRepository,
 } from '../../domain/repositories.js';
 import { DateUtils } from '../../utils/date-utils.js';
+import { recurringOccurrencesInMonth } from '../../domain/recurring-rule.js';
 
 const MONTH_NAMES = [
   'Janeiro',
@@ -30,7 +31,7 @@ export class CalculateForecastUseCase {
   ) {}
 
   execute(startYearMonth?: string, monthsCount: number = 6): ForecastResult {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = DateUtils.today();
     const initialYM = startYearMonth || DateUtils.getYearMonth(today);
     const monthsList = DateUtils.getNextMonths(initialYM, Math.max(1, monthsCount));
 
@@ -46,8 +47,20 @@ export class CalculateForecastUseCase {
       }
     }
 
-    const activeRules = this.recurringRepo.list(true);
+    // O acumulado parte do saldo atual (já liquidado) e soma apenas o que ainda
+    // vai acontecer: lançamentos não liquidados e projeções de regras recorrentes.
+    // Pendências de meses anteriores ao início (ex.: contas atrasadas) entram já no ponto de partida.
+    const isSettled = (status: string) => status === 'PAID' || status === 'RECEIVED';
+    const signed = (tx: { type: string; amountCents: number }) =>
+      tx.type === 'INCOME' ? tx.amountCents : -tx.amountCents;
+    const firstForecastDay = `${monthsList[0]}-01`;
     let runningBalance = currentBalanceCents;
+    for (const tx of allTransactions) {
+      if (tx.status === 'CANCELLED' || isSettled(tx.status)) continue;
+      if (tx.date < firstForecastDay) runningBalance += signed(tx);
+    }
+
+    const activeRules = this.recurringRepo.list(true);
     const forecastItems: MonthlyForecastItem[] = [];
 
     for (const ym of monthsList) {
@@ -71,13 +84,19 @@ export class CalculateForecastUseCase {
       let variableExpensesCents = 0;
       let recurringIncomesCents = 0;
       let variableIncomesCents = 0;
+      let pendingNetCents = 0;
 
       // Conjunto de IDs de regras recorrentes que já possuem transação concreta neste mês
       const instantiatedRuleIds = new Set<string>();
+      const instantiatedRuleDates = new Set<string>();
 
       for (const tx of monthTransactions) {
         if (tx.recurringRuleId) {
           instantiatedRuleIds.add(tx.recurringRuleId);
+          instantiatedRuleDates.add(`${tx.recurringRuleId}|${tx.date}`);
+        }
+        if (!isSettled(tx.status)) {
+          pendingNetCents += signed(tx);
         }
 
         if (tx.type === 'EXPENSE') {
@@ -99,14 +118,19 @@ export class CalculateForecastUseCase {
 
       // Projeção virtual de regras recorrentes ativas que ainda NÃO foram instanciadas neste mês
       for (const rule of activeRules) {
-        if (rule.startDate > lastDay) continue;
-        if (rule.endDate && rule.endDate < firstDay) continue;
-        if (instantiatedRuleIds.has(rule.id)) continue; // Já somado nas concretas!
+        const perDate = rule.frequency === 'WEEKLY';
+        if (!perDate && instantiatedRuleIds.has(rule.id)) continue; // Já somado nas concretas!
 
-        if (rule.type === 'EXPENSE') {
-          fixedExpensesCents += rule.amountCents;
-        } else {
-          recurringIncomesCents += rule.amountCents;
+        for (const date of recurringOccurrencesInMonth(rule, ym)) {
+          if (perDate && instantiatedRuleDates.has(`${rule.id}|${date}`)) continue;
+          if (this.recurringRepo.isOccurrenceSkipped(rule.id, perDate ? date : ym)) continue;
+
+          if (rule.type === 'EXPENSE') {
+            fixedExpensesCents += rule.amountCents;
+          } else {
+            recurringIncomesCents += rule.amountCents;
+          }
+          pendingNetCents += signed(rule);
         }
       }
 
@@ -114,7 +138,7 @@ export class CalculateForecastUseCase {
       const totalExpense =
         fixedExpensesCents + installmentExpensesCents + variableExpensesCents;
       const projectedBalance = totalIncome - totalExpense;
-      runningBalance += projectedBalance;
+      runningBalance += pendingNetCents;
 
       const commitmentPercentage =
         totalIncome > 0

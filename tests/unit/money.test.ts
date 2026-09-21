@@ -14,6 +14,19 @@ describe('Money Value Object', () => {
     expect(Money.fromReal(' 45,90 ')).toBe(4590);
   });
 
+  it('trata o ponto como separador decimal quando digitado no lugar da vírgula', () => {
+    expect(Money.fromReal('45.90')).toBe(4590);
+    expect(Money.fromReal('1.5')).toBe(150);
+    expect(Money.fromReal('1250.50')).toBe(125050);
+    expect(Money.fromReal('+45.90')).toBe(4590);
+  });
+
+  it('trata o ponto como separador de milhar em grupos de três dígitos', () => {
+    expect(Money.fromReal('1.234')).toBe(123400);
+    expect(Money.fromReal('1.234.567')).toBe(123456700);
+    expect(Money.fromReal('1,234.56')).toBe(123456);
+  });
+
   it('converte centavos para valor float em reais', () => {
     expect(Money.toReal(125050)).toBe(1250.5);
     expect(Money.toReal(30)).toBe(0.3);

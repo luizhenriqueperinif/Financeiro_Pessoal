@@ -141,4 +141,37 @@ VERSION:102
     expect(result.items[1].amountCents).toBe(20700);
     expect(result.items[1].type).toBe('EXPENSE');
   });
+
+  it('interpreta valores no formato americano com separador de milhar', () => {
+    const csvContent = `Date,Amount,Description
+2026-09-05,"-1,234.56",Aluguel Apartamento
+2026-09-06,-45.9,Padaria`;
+
+    const result = parser.parse(csvContent, 'extrato.csv');
+    expect(result.items.map((i) => i.amountCents)).toEqual([123456, 4590]);
+  });
+
+  it('aceita data com ano de dois dígitos e descarta linhas com data inválida ou valor zero', () => {
+    const csvContent = `Data;Descricao;Valor
+15/03/26;Farmacia;-30,00
+data-ruim;Linha Quebrada;-10,00
+16/03/2026;Estorno Zerado;0,00`;
+
+    const result = parser.parse(csvContent, 'extrato.csv');
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].date).toBe('2026-03-15');
+    expect(result.items[0].description).toBe('Farmacia');
+  });
+
+  it('descarta transações OFX sem valor', () => {
+    const ofxContent = `<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><BANKTRANLIST>
+<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20260905<TRNAMT>0.00<FITID>z-1<MEMO>Tarifa Isenta</STMTTRN>
+<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20260906<TRNAMT>-12.50<FITID>z-2<MEMO>Cafe</STMTTRN>
+<STMTTRN><TRNTYPE>CREDIT<DTPOSTED>20260907<TRNAMT>+45.90<FITID>z-3<MEMO>Pix</STMTTRN>
+</BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>`;
+
+    const result = parser.parse(ofxContent, 'extrato.ofx');
+    expect(result.items.map((i) => i.externalId)).toEqual(['z-2', 'z-3']);
+    expect(result.items[1].amountCents).toBe(4590);
+  });
 });

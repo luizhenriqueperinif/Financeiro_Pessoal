@@ -24,7 +24,7 @@ export class CalculateFinancialAlertsUseCase {
       transactions,
     } = params;
 
-    const todayStr = params.todayDate || new Date().toISOString().slice(0, 10);
+    const todayStr = params.todayDate || DateUtils.today();
     const totalDaysInMonth = DateUtils.getDaysInMonth(selectedYearMonth);
     const currentYM = DateUtils.getYearMonth(todayStr);
 

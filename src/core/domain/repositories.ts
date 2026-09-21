@@ -39,7 +39,8 @@ export interface ITransactionRepository {
   update(id: string, data: UpdateTransactionDTO): Transaction | null;
   delete(id: string): boolean;
   markAsPaid(id: string, paymentDate?: string): Transaction | null;
-  findByRecurringInstance(ruleId: string, month: string): Transaction | null;
+  /** period: YYYY-MM (qualquer dia do mês) ou YYYY-MM-DD (data exata). */
+  findByRecurringInstance(ruleId: string, period: string): Transaction | null;
 }
 
 export interface IRecurringRuleRepository {
@@ -48,6 +49,10 @@ export interface IRecurringRuleRepository {
   list(activeOnly?: boolean): RecurringRule[];
   update(id: string, data: UpdateRecurringRuleDTO): RecurringRule | null;
   delete(id: string): boolean;
+  /** Marca a ocorrência da data informada como excluída pelo usuário. */
+  skipOccurrence(ruleId: string, date: string): void;
+  /** period: YYYY-MM (alguma ocorrência do mês) ou YYYY-MM-DD (data exata). */
+  isOccurrenceSkipped(ruleId: string, period: string): boolean;
 }
 
 export interface IInstallmentPurchaseRepository {

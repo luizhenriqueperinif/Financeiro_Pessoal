@@ -174,6 +174,17 @@ describe('AIClient (Integração com Provedores Gratuitos de IA)', () => {
     expect(models).toContain('gemini-2.5-flash');
   });
 
+  it('envia a chave do Gemini no header, sem expô-la na URL', async () => {
+    const { fetchAvailableGeminiModels } = await import('../../src/core/services/ai-client.js');
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ models: [] }) });
+
+    await fetchAvailableGeminiModels('segredo-123', mockFetch as any);
+
+    const [url, init] = mockFetch.mock.calls[0];
+    expect(url).not.toContain('segredo-123');
+    expect(init.headers['x-goog-api-key']).toBe('segredo-123');
+  });
+
   it('testAIConnection diagnostica modelo não encontrado e sugere alternativa Gemini 3 da conta', async () => {
     const { testAIConnection } = await import('../../src/core/services/ai-client.js');
 

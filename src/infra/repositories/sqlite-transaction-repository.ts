@@ -12,6 +12,7 @@ import {
   TransactionStatus,
   TransactionType,
 } from '../../core/types/common.js';
+import { DateUtils } from '../../core/utils/date-utils.js';
 
 interface TransactionRow {
   id: string;
@@ -41,7 +42,7 @@ export class SqliteTransactionRepository implements ITransactionRepository {
   private mapToDomain(row: TransactionRow): Transaction {
     // Se o status for PENDING e a data de vencimento for menor que a data atual (YYYY-MM-DD),
     // computa visualmente como OVERDUE conforme alinhado
-    const today = new Date().toISOString().slice(0, 10);
+    const today = DateUtils.today();
     let effectiveStatus = row.status;
     if (row.status === 'PENDING' && row.date < today) {
       effectiveStatus = 'OVERDUE';
@@ -158,7 +159,14 @@ export class SqliteTransactionRepository implements ITransactionRepository {
       query += ' AND t.payment_method = ?';
       params.push(filters.paymentMethod);
     }
-    if (filters?.status) {
+    if (filters?.status === 'OVERDUE') {
+      // OVERDUE não é gravado: é um PENDING com vencimento anterior a hoje
+      query += " AND t.status = 'PENDING' AND t.date < ?";
+      params.push(DateUtils.today());
+    } else if (filters?.status === 'PENDING') {
+      query += " AND t.status = 'PENDING' AND t.date >= ?";
+      params.push(DateUtils.today());
+    } else if (filters?.status) {
       query += ' AND t.status = ?';
       params.push(filters.status);
     }
@@ -185,7 +193,9 @@ export class SqliteTransactionRepository implements ITransactionRepository {
     const date = data.date !== undefined ? data.date : existing.date;
     const paymentDate = data.paymentDate !== undefined ? data.paymentDate : existing.paymentDate;
     const paymentMethod = data.paymentMethod !== undefined ? data.paymentMethod : existing.paymentMethod;
-    const status = data.status !== undefined ? data.status : existing.status;
+    // OVERDUE é derivado da data em mapToDomain; no banco ele continua PENDING
+    const requestedStatus = data.status !== undefined ? data.status : existing.status;
+    const status = requestedStatus === 'OVERDUE' ? 'PENDING' : requestedStatus;
     const notes = data.notes !== undefined ? (data.notes?.trim() || null) : existing.notes;
     const now = new Date().toISOString();
 
@@ -223,7 +233,7 @@ export class SqliteTransactionRepository implements ITransactionRepository {
     const existing = this.findById(id);
     if (!existing) return null;
 
-    const targetDate = paymentDate || new Date().toISOString().slice(0, 10);
+    const targetDate = paymentDate || DateUtils.today();
     const newStatus: TransactionStatus = existing.type === 'INCOME' ? 'RECEIVED' : 'PAID';
     const now = new Date().toISOString();
 
@@ -247,8 +257,8 @@ export class SqliteTransactionRepository implements ITransactionRepository {
     return this.findById(id);
   }
 
-  findByRecurringInstance(ruleId: string, month: string): Transaction | null {
-    // month no formato YYYY-MM
+  findByRecurringInstance(ruleId: string, period: string): Transaction | null {
+    // period: YYYY-MM (qualquer dia do mês) ou YYYY-MM-DD (data exata)
     const stmt = this.db.prepare(`
       SELECT 
         t.*,
@@ -260,10 +270,10 @@ export class SqliteTransactionRepository implements ITransactionRepository {
       FROM transactions t
       JOIN categories c ON t.category_id = c.id
       LEFT JOIN installments i ON t.installment_id = i.id
-      WHERE t.recurring_rule_id = ? AND strftime('%Y-%m', t.date) = ?
+      WHERE t.recurring_rule_id = ? AND (t.date = ? OR strftime('%Y-%m', t.date) = ?)
     `);
 
-    const row = stmt.get(ruleId, month) as TransactionRow | undefined;
+    const row = stmt.get(ruleId, period, period) as TransactionRow | undefined;
     return row ? this.mapToDomain(row) : null;
   }
 }

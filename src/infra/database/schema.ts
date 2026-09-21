@@ -79,6 +79,13 @@ CREATE TABLE IF NOT EXISTS transactions (
   updated_at TEXT NOT NULL
 );
 
+-- Ocorrências de regras recorrentes excluídas pelo usuário (não devem ser recriadas)
+CREATE TABLE IF NOT EXISTS recurring_skips (
+  rule_id TEXT NOT NULL REFERENCES recurring_rules(id) ON DELETE CASCADE,
+  occurrence_date TEXT NOT NULL,
+  PRIMARY KEY (rule_id, occurrence_date)
+);
+
 -- Índices para consultas de alta performance
 CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date);
 CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(type);

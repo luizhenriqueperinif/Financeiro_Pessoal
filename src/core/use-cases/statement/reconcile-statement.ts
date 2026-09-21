@@ -11,10 +11,14 @@ import {
 import { PaymentMethod } from '../../types/common.js';
 import { Transaction } from '../../domain/transaction.js';
 
+/** Executa o bloco de forma atômica (ex.: db.transaction do SQLite). */
+export type UnitOfWork = <T>(fn: () => T) => T;
+
 export class ReconcileStatementUseCase {
   constructor(
     private transactionRepo: ITransactionRepository,
-    private categoryRepo: ICategoryRepository
+    private categoryRepo: ICategoryRepository,
+    private runAtomically: UnitOfWork = (fn) => fn()
   ) {}
 
   /**
@@ -41,7 +45,9 @@ export class ReconcileStatementUseCase {
           tx.status !== 'CANCELLED'
       );
 
-      const isDuplicate = Boolean(matched);
+      // Corresponder a um lançamento ainda em aberto significa que o extrato o quitou
+      const settles = matched && (matched.status === 'PENDING' || matched.status === 'OVERDUE');
+      const isDuplicate = Boolean(matched) && !settles;
       if (matched) {
         usedTxIds.add(matched.id);
       }
@@ -72,8 +78,11 @@ export class ReconcileStatementUseCase {
         isDuplicate,
         duplicateReason: isDuplicate
           ? `Lançamento idêntico já cadastrado em ${item.date} ("${matched?.description}")`
+          : settles
+          ? `Quita o lançamento pendente "${matched?.description}"`
           : undefined,
         matchedTransactionId: matched?.id,
+        settlesTransactionId: settles ? matched?.id : undefined,
         categoryId: matchedCategory ? matchedCategory.id : '',
         categoryName: matchedCategory ? matchedCategory.name : undefined,
         selected: !isDuplicate, // Itens duplicados vêm desmarcados por padrão
@@ -87,9 +96,21 @@ export class ReconcileStatementUseCase {
    * Salva os lançamentos confirmados pelo usuário diretamente no repositório.
    */
   commit(items: ConfirmedStatementItem[]): ReconciliationResult {
+    return this.runAtomically(() => this.commitItems(items));
+  }
+
+  private commitItems(items: ConfirmedStatementItem[]): ReconciliationResult {
     const createdTransactions: Transaction[] = [];
+    let settledCount = 0;
 
     for (const item of items) {
+      if (item.settlesTransactionId) {
+        const settled = this.transactionRepo.markAsPaid(item.settlesTransactionId, item.date);
+        if (!settled) throw new Error(`Lançamento a quitar não encontrado: ${item.description}`);
+        settledCount++;
+        continue;
+      }
+
       const validMethod: PaymentMethod = item.paymentMethod || 'OTHER';
 
       const tx = this.transactionRepo.create({
@@ -109,6 +130,7 @@ export class ReconcileStatementUseCase {
 
     return {
       importedCount: createdTransactions.length,
+      settledCount,
       skippedCount: 0,
       transactions: createdTransactions,
     };

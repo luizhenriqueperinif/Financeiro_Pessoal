@@ -24,7 +24,7 @@ export class GetCalendarDataUseCase {
   }
 
   execute(yearMonth?: string): CalendarMonthData {
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStr = DateUtils.today();
     const targetYM = yearMonth || DateUtils.getYearMonth(todayStr);
 
     // Instancia despesas fixas para o mês caso ainda não tenham sido

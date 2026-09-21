@@ -8,6 +8,7 @@ import {
 } from '../../core/domain/installment-purchase.js';
 import { IInstallmentPurchaseRepository } from '../../core/domain/repositories.js';
 import { InstallmentStatus, PaymentMethod } from '../../core/types/common.js';
+import { DateUtils } from '../../core/utils/date-utils.js';
 
 interface PurchaseRow {
   id: string;
@@ -67,7 +68,7 @@ export class SqliteInstallmentPurchaseRepository
   }
 
   private mapInstallmentToDomain(row: InstallmentRow): Installment {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = DateUtils.today();
     let effectiveStatus = row.status;
     if (row.status === 'PENDING' && row.due_date < today) {
       effectiveStatus = 'OVERDUE';
@@ -284,7 +285,9 @@ export class SqliteInstallmentPurchaseRepository
       data.paymentDate !== undefined
         ? data.paymentDate
         : existing.paymentDate;
-    const status = data.status !== undefined ? data.status : existing.status;
+    // OVERDUE é derivado da data em mapInstallmentToDomain; no banco ele continua PENDING
+    const requestedStatus = data.status !== undefined ? data.status : existing.status;
+    const status = requestedStatus === 'OVERDUE' ? 'PENDING' : requestedStatus;
     const now = new Date().toISOString();
 
     const updateTx = this.db.transaction(() => {

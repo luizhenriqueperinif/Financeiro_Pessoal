@@ -1,7 +1,8 @@
 {
   "name": "financeiro_pessoal",
   "version": "1.0.0",
-  "description": "",
+  "description": "Controle Financeiro Pessoal",
+  "author": "Luiz Henrique",
   "main": "dist/desktop/main.cjs",
   "type": "module",
   "scripts": {
@@ -13,7 +14,8 @@
     "dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && npm run bundle:desktop && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .\"",
     "test": "vitest run",
     "test:watch": "vitest",
-    "package": "npm run build && electron-builder --win --x64"
+    "package": "npm run build && electron-builder --win --x64",
+    "seed": "tsx src/infra/database/seed-user-data.ts"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",
@@ -22,7 +24,6 @@
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "recharts": "^3.10.1",
-    "sql.js": "^1.14.2",
     "tailwind-merge": "^3.6.0",
     "zod": "^4.6.2"
   },
@@ -32,7 +33,6 @@
     "@types/node": "^22.20.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "@types/sql.js": "^1.4.11",
     "@vitejs/plugin-react": "^6.1.1",
     "autoprefixer": "^10.5.6",
     "concurrently": "^10.0.5",

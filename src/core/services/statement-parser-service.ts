@@ -2,6 +2,8 @@ import {
   BankStatementItem,
   BankStatementParseResult,
 } from '../domain/statement.js';
+import { DateUtils } from '../utils/date-utils.js';
+import { Money } from '../value-objects/money.js';
 
 export class StatementParserService {
   /**
@@ -65,6 +67,7 @@ export class StatementParserService {
       const amtMatch = block.match(/<TRNAMT>([+-]?[\d,.]+)/i);
       const rawAmt = amtMatch ? amtMatch[1] : '0';
       const { amountCents, isNegative } = this.parseMonetaryCents(rawAmt);
+      if (!date || amountCents === 0) continue;
 
       // FITID
       const fitidMatch = block.match(/<FITID>([^<\r\n]+)/i);
@@ -89,7 +92,7 @@ export class StatementParserService {
 
       items.push({
         externalId,
-        date: date || new Date().toISOString().slice(0, 10),
+        date,
         description,
         amountCents,
         type,
@@ -100,8 +103,8 @@ export class StatementParserService {
     return {
       bankName,
       accountType: isCreditCard ? 'CREDIT_CARD' : 'CHECKING',
-      startDate: minDate !== '9999-99-99' ? minDate : new Date().toISOString().slice(0, 10),
-      endDate: maxDate !== '0000-00-00' ? maxDate : new Date().toISOString().slice(0, 10),
+      startDate: minDate !== '9999-99-99' ? minDate : DateUtils.today(),
+      endDate: maxDate !== '0000-00-00' ? maxDate : DateUtils.today(),
       items,
     };
   }
@@ -157,10 +160,10 @@ export class StatementParserService {
       const externalId = idIdx !== -1 && cols[idIdx] ? cols[idIdx].trim() : null;
 
       const date = this.normalizeDate(rawDate);
-      if (date && date < minDate) minDate = date;
-      if (date && date > maxDate) maxDate = date;
-
       const { amountCents, isNegative } = this.parseMonetaryCents(rawAmt);
+      if (!date || amountCents === 0) continue;
+      if (date < minDate) minDate = date;
+      if (date > maxDate) maxDate = date;
 
       // Em faturas de cartão, compras são despesas mesmo com sinal positivo no CSV
       let type: 'INCOME' | 'EXPENSE';
@@ -172,7 +175,7 @@ export class StatementParserService {
 
       items.push({
         externalId,
-        date: date || new Date().toISOString().slice(0, 10),
+        date,
         description,
         amountCents,
         type,
@@ -207,7 +210,10 @@ export class StatementParserService {
 
     for (let i = 0; i < row.length; i++) {
       const c = row[i];
-      if (c === '"') {
+      if (c === '"' && inQuotes && row[i + 1] === '"') {
+        cur += '"';
+        i++;
+      } else if (c === '"') {
         inQuotes = !inQuotes;
       } else if (c === delimiter && !inQuotes) {
         result.push(cur.replace(/^"|"$/g, '').trim());
@@ -223,12 +229,12 @@ export class StatementParserService {
   private normalizeDate(raw: string): string {
     const clean = raw.replace(/"/g, '').trim();
     // Formato DD/MM/AAAA ou DD-MM-AAAA
-    const brMatch = clean.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
+    const brMatch = clean.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4}|\d{2})(?!\d)/);
     if (brMatch) {
       const day = brMatch[1].padStart(2, '0');
       const month = brMatch[2].padStart(2, '0');
-      const year = brMatch[3];
-      return `${year}-${month}-${day}`;
+      const year = brMatch[3].length === 2 ? `20${brMatch[3]}` : brMatch[3];
+      return this.validIsoDate(`${year}-${month}-${day}`);
     }
 
     // Formato AAAA-MM-DD
@@ -237,10 +243,17 @@ export class StatementParserService {
       const year = isoMatch[1];
       const month = isoMatch[2].padStart(2, '0');
       const day = isoMatch[3].padStart(2, '0');
-      return `${year}-${month}-${day}`;
+      return this.validIsoDate(`${year}-${month}-${day}`);
     }
 
-    return clean;
+    return '';
+  }
+
+  private validIsoDate(iso: string): string {
+    const [y, m, d] = iso.split('-').map(Number);
+    const parsed = new Date(y, m - 1, d);
+    const isReal = parsed.getFullYear() === y && parsed.getMonth() === m - 1 && parsed.getDate() === d;
+    return isReal ? iso : '';
   }
 
   /**
@@ -255,10 +268,8 @@ export class StatementParserService {
       clean = clean.slice(1).trim();
     }
 
-    // Trata formato brasileiro (1.928,25) convertendo para separador único decimal
-    if (clean.includes(',')) {
-      clean = clean.replace(/\./g, '').replace(',', '.');
-    }
+    // Normaliza 1.928,25 / 1,928.25 / 1928.25 para separador decimal único
+    clean = Money.normalizeDecimal(clean.replace(/\s+/g, ''));
 
     const parts = clean.split('.');
     const intPart = parseInt(parts[0].replace(/\D/g, '') || '0', 10);

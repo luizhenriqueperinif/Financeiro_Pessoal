@@ -197,4 +197,20 @@ export class SqliteRecurringRuleRepository implements IRecurringRuleRepository {
     const res = stmt.run(id);
     return res.changes > 0;
   }
+
+  skipOccurrence(ruleId: string, date: string): void {
+    this.db
+      .prepare('INSERT OR IGNORE INTO recurring_skips (rule_id, occurrence_date) VALUES (?, ?)')
+      .run(ruleId, date);
+  }
+
+  isOccurrenceSkipped(ruleId: string, period: string): boolean {
+    const row = this.db
+      .prepare(
+        `SELECT 1 FROM recurring_skips
+         WHERE rule_id = ? AND (occurrence_date = ? OR strftime('%Y-%m', occurrence_date) = ?)`
+      )
+      .get(ruleId, period, period);
+    return row !== undefined;
+  }
 }

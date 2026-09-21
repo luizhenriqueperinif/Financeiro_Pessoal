@@ -113,4 +113,66 @@ describe('Financial Forecast Use Case (Previsão Financeira)', () => {
     expect(m2.projectedBalanceCents).toBe(300000);
     expect(m2.accumulatedBalanceCents).toBe(650000);
   });
+
+  it('não soma de novo no acumulado o que já foi recebido ou pago', () => {
+    const salarioCat = categoryRepo.findByName('Salário')!;
+    const moradiaCat = categoryRepo.findByName('Moradia')!;
+    transactionRepo.create({
+      description: 'Salário Setembro',
+      amountCents: 500000,
+      type: 'INCOME',
+      categoryId: salarioCat.id,
+      date: '2026-09-05',
+      paymentMethod: 'PIX',
+      status: 'RECEIVED',
+    });
+    transactionRepo.create({
+      description: 'Aluguel Setembro',
+      amountCents: 120000,
+      type: 'EXPENSE',
+      categoryId: moradiaCat.id,
+      date: '2026-09-10',
+      paymentMethod: 'PIX',
+      status: 'PENDING',
+    });
+
+    const forecast = calculateForecast.execute('2026-09', 2);
+
+    expect(forecast.initialBalanceCents).toBe(500000);
+    // Saldo atual (5.000) − aluguel ainda pendente (1.200)
+    expect(forecast.months[0].projectedBalanceCents).toBe(380000);
+    expect(forecast.months[0].accumulatedBalanceCents).toBe(380000);
+    expect(forecast.months[1].accumulatedBalanceCents).toBe(380000);
+  });
+
+  it('desconta no acumulado as contas atrasadas de meses anteriores ainda não pagas', () => {
+    const moradiaCat = categoryRepo.findByName('Moradia')!;
+    transactionRepo.create({
+      description: 'Condomínio Agosto',
+      amountCents: 40000,
+      type: 'EXPENSE',
+      categoryId: moradiaCat.id,
+      date: '2026-08-10',
+      paymentMethod: 'PIX',
+      status: 'PENDING',
+    });
+
+    const forecast = calculateForecast.execute('2026-09', 1);
+
+    expect(forecast.months[0].accumulatedBalanceCents).toBe(-40000);
+  });
+
+  it('projeta regras anuais só no mês de aniversário e semanais por ocorrência', () => {
+    const outrasCat = categoryRepo.findByName('Outras Despesas')!;
+    const base = { type: 'EXPENSE' as const, categoryId: outrasCat.id, paymentMethod: 'PIX' as const };
+    recurringRepo.create({ ...base, description: 'IPVA', amountCents: 150000, frequency: 'YEARLY', dueDay: 15, startDate: '2026-10-01' });
+    recurringRepo.create({ ...base, description: 'Diarista', amountCents: 10000, frequency: 'WEEKLY', dueDay: 1, startDate: '2026-09-04' });
+
+    const forecast = calculateForecast.execute('2026-09', 2);
+
+    // Setembro: diarista em 04, 11, 18 e 25
+    expect(forecast.months[0].expenseCents).toBe(40000);
+    // Outubro: IPVA + diarista em 02, 09, 16, 23 e 30
+    expect(forecast.months[1].expenseCents).toBe(150000 + 50000);
+  });
 });

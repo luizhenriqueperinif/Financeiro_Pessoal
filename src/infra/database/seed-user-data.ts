@@ -35,15 +35,18 @@ export function seedUserData(db: Database, forceClean: boolean = false): void {
   // Habilita foreign keys
   db.pragma('foreign_keys = ON');
 
-  const recurringCount = db
-    .prepare('SELECT COUNT(*) as count FROM recurring_rules')
-    .get() as { count: number };
-  const installmentCount = db
-    .prepare('SELECT COUNT(*) as count FROM installment_purchases')
+  // O seed apaga transações, parcelamentos e regras antes de inserir; só roda
+  // em banco vazio, a menos que forceClean seja pedido explicitamente.
+  const hasData = db
+    .prepare(`
+      SELECT (SELECT COUNT(*) FROM transactions)
+           + (SELECT COUNT(*) FROM recurring_rules)
+           + (SELECT COUNT(*) FROM installment_purchases) AS count
+    `)
     .get() as { count: number };
 
-  if (!forceClean && recurringCount.count > 0 && installmentCount.count > 0) {
-    console.log('Banco de dados já contém regras e parcelamentos reais.');
+  if (!forceClean && hasData.count > 0) {
+    console.log('Banco de dados já contém lançamentos; seed ignorado.');
     return;
   }
 
