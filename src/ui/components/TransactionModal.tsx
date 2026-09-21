@@ -39,11 +39,20 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    setType(initialType);
-    setStatus(initialType === 'INCOME' ? 'RECEIVED' : 'PAID');
-    if (defaultDate) setDate(defaultDate);
-    setIsInstallment(false);
-    setError(null);
+    if (isOpen) {
+      setType(initialType);
+      setDescription('');
+      setAmountStr('');
+      setDate(defaultDate || new Date().toISOString().slice(0, 10));
+      setCategoryId('');
+      setPaymentMethod('PIX');
+      setStatus(initialType === 'INCOME' ? 'RECEIVED' : 'PAID');
+      setNotes('');
+      setIsInstallment(false);
+      setTotalInstallments(3);
+      setError(null);
+      setIsLoading(false);
+    }
   }, [initialType, isOpen, defaultDate]);
 
   // Filtra categorias apropriadas para o tipo

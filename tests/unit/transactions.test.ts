@@ -8,6 +8,7 @@ import {
   UpdateTransactionUseCase,
   DeleteTransactionUseCase,
   MarkTransactionPaidUseCase,
+  MarkTransactionUnpaidUseCase,
 } from '../../src/core/use-cases/transactions/index.js';
 
 describe('Transaction Use Cases (Receitas e Despesas)', () => {
@@ -158,5 +159,26 @@ describe('Transaction Use Cases (Receitas e Despesas)', () => {
 
     expect(listTx.execute({ status: 'OVERDUE' }).map((t) => t.description)).toEqual(['Vencida']);
     expect(listTx.execute({ status: 'PENDING' }).map((t) => t.description)).toEqual(['A vencer']);
+  });
+
+  it('desmarcar como paga volta a pendente e, se vencida, aparece como atrasada', () => {
+    const moradia = categoryRepo.findByName('Moradia')!;
+    const markUnpaid = new MarkTransactionUnpaidUseCase(transactionRepo);
+    const tx = createTx.execute({
+      description: 'Gás',
+      amountCents: 12000,
+      type: 'EXPENSE',
+      categoryId: moradia.id,
+      date: '2026-08-28',
+      paymentMethod: 'PIX',
+      status: 'PAID',
+    });
+
+    const desmarcada = markUnpaid.execute(tx.id);
+    expect(desmarcada.status).toBe('OVERDUE');
+    expect(desmarcada.paymentDate).toBeNull();
+
+    const adiada = updateTx.execute(tx.id, { date: '2026-09-30' });
+    expect(adiada.status).toBe('PENDING');
   });
 });
